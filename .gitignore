@@ -1,0 +1,39 @@
+# ---------- 依赖与构建产物 ----------
+node_modules/
+dist/
+build/*.dmg
+.downloads/
+.electron-cache/
+.npm-cache/
+.pip-cache/
+.build-cache/
+
+# ---------- 虚拟环境与打包用 Python 依赖（可由 build.sh 重新生成）----------
+.venv/
+python-libs/
+
+# ---------- 模型源文件（应用实际使用 renderer/assets/avatars/ 下的副本）----------
+models/
+
+# ---------- 本地配置与用户数据（绝不入库）----------
+settings.json
+conversations.json
+*.local.json
+.env
+.env.*
+
+# ---------- 密钥/凭据 ----------
+*.pem
+*.p12
+*.key
+
+# ---------- macOS / 编辑器 ----------
+.DS_Store
+**/.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# ---------- 日志与临时文件 ----------
+*.log
+npm-debug.log*

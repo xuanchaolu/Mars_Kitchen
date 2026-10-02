@@ -1,0 +1,22 @@
+{
+  "name": "perper",
+  "productName": "PerPer",
+  "version": "4.3.0",
+  "description": "PerPer AI 对话客户端 — DeepSeek 官方接口 + 3D 虚拟形象（Edge 神经语音播报）",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "icon": "python3 tools/gen-icon.py",
+    "build": "bash build.sh",
+    "avatar": "esbuild src/avatar-src.js --bundle --format=iife --target=chrome120 --minify --outfile=renderer/js/avatar.bundle.js"
+  },
+  "devDependencies": {
+    "@pixiv/three-vrm": "^3.0.0",
+    "electron": "^33.4.0",
+    "electron-packager": "^17.1.2",
+    "esbuild": "^0.28.2",
+    "three": "^0.160.0"
+  },
+  "dependencies": {}
+}
