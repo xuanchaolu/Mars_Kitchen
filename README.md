@@ -216,3 +216,28 @@ description: 按团队规范审查代码，指出安全与性能问题
 | 全局 system prompt | 空（技能提示词会覆盖它） |
 
 **内置技能的分发方式**：`skill_hcy/` 通过 electron-packager 的 `extraResource` 放到 `PerPer.app/Contents/Resources/skill_hcy/`（同时从 asar 中排除，避免重复）；应用首次启动时把它复制到 `~/Library/Application Support/PerPer/skills/`，并把 `default-prompt.txt` 写入该技能的 system prompt。用 `seededSkills` 记录已播种，用户手动删除后不会自动装回。
+
+## ⚖️ 第三方资源与授权（协作/分发前必读）
+
+| 资源 | 位置 | 授权情况 |
+|---|---|---|
+| 文件夹图标（17 个） | `icns/`、`renderer/assets/folder-icons/` | 作者 **呆小东**，标注**禁止商用**，仅供个人使用 |
+| 人物模型（6 个 VRM） | `renderer/assets/avatars/` | 各模型作者保留权利，商用前需逐个确认授权 |
+| 头像背景图（3 张） | `bg/`、`renderer/assets/bg/` | 项目所有者自有素材 |
+| Edge TTS（Python 依赖） | `python-libs/`（未入库，`build.sh` 自动生成） | MIT / 各包各自许可 |
+
+> 本仓库含上述第三方素材，**请保持私有**，不要公开分发或商用，除非已取得对应授权。
+
+## 🤝 协作开发
+
+```bash
+git clone https://github.com/<你的用户名>/perperAI.git
+cd perperAI
+npm install                 # 安装依赖
+bash build.sh               # 生成图标 → 打包 .app（首次会自动准备 python-libs）
+open dist/PerPer-darwin-arm64/PerPer.app
+```
+
+- **不要提交**：`dist/`、`node_modules/`、`.venv/`、`python-libs/`、`models/`、`settings.json`（已全部加入 `.gitignore`）
+- **API Key 绝不入库**：代码里默认留空，本地填在应用设置里；测试脚本从环境变量 `PERPER_KEY` 读取
+- 版本号同时维护在 `package.json`、`tools/package.js`、`renderer/index.html` 三处
