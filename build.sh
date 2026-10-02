@@ -1,5 +1,5 @@
 #!/bin/bash
-# PerPer macOS 应用构建脚本
+# 火星小厨房（Mars Kitchen）macOS 应用构建脚本
 set -e
 cd "$(dirname "$0")"
 
@@ -24,9 +24,9 @@ node tools/package.js
 
 APP="$(find dist -maxdepth 2 -name '*.app' -type d | head -1)"
 echo "==> [3/5] 完善元数据: $APP"
-/usr/libexec/PlistBuddy -c "Set :CFBundleName PerPer" "$APP/Contents/Info.plist" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName PerPer" "$APP/Contents/Info.plist" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.perper.app" "$APP/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleName 火星小厨房" "$APP/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 火星小厨房" "$APP/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.marskitchen.app" "$APP/Contents/Info.plist" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Set :LSMinimumSystemVersion 12.0" "$APP/Contents/Info.plist" 2>/dev/null || true
 
 echo "==> [4/5] 代码签名 (ad-hoc)"

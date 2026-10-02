@@ -1,15 +1,15 @@
-/* 冒烟测试：用真实 OpenRouter API 验证连接 / 流式 / reasoning 字段格式 */
+/* 冒烟测试：用真实 DeepSeek API 验证连接 / 流式 / reasoning 字段格式（MARS_KEY 或 PERPER_KEY） */
 'use strict';
 
-const API_KEY = process.env.PERPER_KEY || '';   // 只从环境变量读取，切勿把密钥写进仓库
+const API_KEY = process.env.MARS_KEY || process.env.PERPER_KEY || '';   // 只从环境变量读取，切勿把密钥写进仓库
 if (!API_KEY) {
-  console.error('请先设置环境变量 PERPER_KEY=<你的 DeepSeek API Key>');
+  console.error('请先设置环境变量 MARS_KEY=<你的 DeepSeek API Key>');
   process.exit(1);
 }
-const MODEL = process.env.PERPER_MODEL || 'deepseek-flash';
+const MODEL = process.env.MARS_MODEL || process.env.PERPER_MODEL || 'deepseek-flash';
 
 async function main() {
-  const url = (process.env.PERPER_BASE || 'https://api.deepseek.com/v1') + '/chat/completions';
+  const url = (process.env.MARS_BASE || process.env.PERPER_BASE || 'https://api.deepseek.com/v1') + '/chat/completions';
   const body = {
     model: MODEL,
     messages: [
@@ -26,8 +26,8 @@ async function main() {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + API_KEY,
-      'HTTP-Referer': 'https://perper.app',
-      'X-Title': 'PerPer smoke test',
+      'HTTP-Referer': 'https://mars-kitchen.app',
+      'X-Title': '火星小厨房 smoke test',
     },
     body: JSON.stringify(body),
   });

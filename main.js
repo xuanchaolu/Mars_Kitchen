@@ -4,39 +4,23 @@ const fs = require('fs');
 const os = require('os');
 const { spawn } = require('child_process');
 
-app.setName('PerPer');
-// 便携模式/测试：可用环境变量重定向数据目录
-if (process.env.PERPER_USERDATA) app.setPath('userData', process.env.PERPER_USERDATA);
-
-/** 一次性迁移：从旧版本（牛来）的数据目录搬来设置、会话与自定义模型 */
-function migrateLegacyData() {
-  // 自检/便携模式下不做迁移（除非显式指定旧目录以便测试）
-  if (process.env.PERPER_USERDATA && !process.env.PERPER_LEGACY_DIR) return;
+app.setName('火星小厨房');
+// 环境变量：新名（MARS_*）优先，兼容旧名（PERPER_*），保证既有脚本/自检继续可用
+const env = (name) => {
+  const v = process.env['MARS_' + name];
+  return v !== undefined && v !== '' ? v : process.env['PERPER_' + name];
+};
+// 便携模式/测试：可用环境变量重定向数据根目录（appData）与用户数据目录
+// 注意：数据目录只由本应用名决定（~/Library/Application Support/火星小厨房），
+// 与 PerPer AI / 牛来 完全隔离 —— 不读取、不迁移、不共享任何历史数据。
+if (env('APPDATA')) {
   try {
-    const appData = app.getPath('appData');                  // ~/Library/Application Support
-    const oldDir = process.env.PERPER_LEGACY_DIR || path.join(appData, '牛来');
-    const newDir = app.getPath('userData');
-    if (!fs.existsSync(oldDir) || path.resolve(oldDir) === path.resolve(newDir)) return;
-    fs.mkdirSync(newDir, { recursive: true });
-    const files = ['settings.json', 'conversations.json'];
-    const moved = [];
-    for (const f of files) {
-      const src = path.join(oldDir, f);
-      const dst = path.join(newDir, f);
-      if (fs.existsSync(src) && !fs.existsSync(dst)) { fs.copyFileSync(src, dst); moved.push(f); }
-    }
-    const oldAvatars = path.join(oldDir, 'avatars');
-    const newAvatars = path.join(newDir, 'avatars');
-    if (fs.existsSync(oldAvatars) && !fs.existsSync(newAvatars)) {
-      fs.cpSync(oldAvatars, newAvatars, { recursive: true });
-      moved.push('avatars/');
-    }
-    if (moved.length) console.log('[PerPer] 已从旧数据目录迁移:', moved.join(', '));
-  } catch (e) {
-    console.error('[PerPer] 数据迁移失败:', e && e.message);
-  }
+    fs.mkdirSync(env('APPDATA'), { recursive: true });
+    app.setPath('appData', env('APPDATA'));
+  } catch (e) { console.error('[火星小厨房] appData 重定向失败:', e && e.message); }
 }
-migrateLegacyData();
+if (env('USERDATA')) app.setPath('userData', env('USERDATA'));
+
 // 允许语音播报在无用户手势时启动（虚拟形象自动播报 AI 输出）
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
@@ -66,8 +50,8 @@ const DEFAULT_SETTINGS = {
   reasoningEnabled: true,
   temperature: 0.7,
   systemPrompt: '',
-  referer: 'https://perper.app',
-  title: 'PerPer macOS', // 注意：会放入 HTTP 请求头，必须为 ASCII（Chromium 限制非 ISO-8859-1 头）
+  referer: 'https://mars-kitchen.app',
+  title: 'Mars Kitchen macOS', // 注意：会放入 HTTP 请求头，必须为 ASCII（Chromium 限制非 ISO-8859-1 头）
   // 虚拟形象
   avatarEnabled: true,      // 显示 3D 人物面板
   avatarModel: 'Martian.vrm',         // 人物模型文件名（默认：火星姐）
@@ -84,14 +68,36 @@ const DEFAULT_SETTINGS = {
   ttsVoice: 'zh-CN-XiaoxiaoNeural',         // Edge 语音（晓晓：中文女声，中英混读）
   ttsRate: 0,                               // Edge 语速百分比 -50..+50
   ttsVolume: 0,                             // Edge 音量百分比
+  // ---------- 火星小厨房 人设 / 档位参数 ----------
+  marsVersion: 'normal',   // 版本：normal = 普通版（加载 A.md）；elderly = 老年人版（加载 shtu）
+  marsSpicy: 0,            // 辣度档位 0..4
+  marsSweet: 0,            // 甜度档位 0..4
+  marsSalty: 0,            // 咸度档位 0..4
+  marsAvoid: '',           // 忌口&过敏（自由文本，全局约束）
+  marsOnboarded: false,    // 是否已完成首次启动弹窗设置（false = 首次打开 App 时弹窗）
 };
+
+// ---------- 人设版本 / 档位参数的取值约束（与前端 renderer/js/mars.js 保持一致） ----------
+const MARS_VERSIONS = ['normal', 'elderly'];
+const clampLevel = (v) => Math.max(0, Math.min(4, Math.round(Number(v) || 0)));
+
+/** 归一化人设与档位参数，避免脏数据进入 prompt */
+function sanitizeMarsSettings(s) {
+  if (MARS_VERSIONS.indexOf(s.marsVersion) === -1) s.marsVersion = 'normal';
+  s.marsSpicy = clampLevel(s.marsSpicy);
+  s.marsSweet = clampLevel(s.marsSweet);
+  s.marsSalty = clampLevel(s.marsSalty);
+  s.marsAvoid = String(s.marsAvoid == null ? '' : s.marsAvoid).slice(0, 500);
+  s.marsOnboarded = s.marsOnboarded === true;
+  return s;
+}
 
 // 请求头必须为 ASCII（Chromium 限制非 ISO-8859-1 头），历史设置里的中文标题在此归一化
 function sanitizeSettings(s) {
   const ascii = (v) => String(v || '').replace(/[^\x20-\x7E]/g, '').trim();
-  if (typeof s.title === 'string') s.title = ascii(s.title) || 'PerPer macOS';
-  if (typeof s.referer === 'string') s.referer = ascii(s.referer) || 'https://perper.app';
-  return s;
+  if (typeof s.title === 'string') s.title = ascii(s.title) || 'Mars Kitchen macOS';
+  if (typeof s.referer === 'string') s.referer = ascii(s.referer) || 'https://mars-kitchen.app';
+  return sanitizeMarsSettings(s);
 }
 
 // 一次性迁移：把旧的 OpenRouter 配置切到 DeepSeek 官方接口
@@ -113,13 +119,19 @@ function migrateToDeepseek(s) {
 ipcMain.handle('settings:get', () => {
   const merged = { ...DEFAULT_SETTINGS, ...readJSON('settings.json', {}) };
   const normalized = sanitizeSettings(migrateToDeepseek(merged));
-  // 首次启动：安装随包内置技能（并把默认提示词写入设置）
-  if (seedBundledSkills(normalized)) {
+  // 首次启动：安装随包内置技能（并把默认提示词写入设置）+ 播种人设档案
+  let changed = seedBundledSkills(normalized);
+  changed = seedMarsProfile(normalized) || changed;
+  changed = cleanupRemovedSkills(normalized) || changed;
+  if (changed) {
     try { writeJSON('settings.json', { ...normalized, configVersion: CONFIG_VERSION }); } catch (_) {}
   }
   return normalized;
 });
-ipcMain.handle('settings:set', (_e, s) => { writeJSON('settings.json', { ...s, configVersion: CONFIG_VERSION }); return true; });
+ipcMain.handle('settings:set', (_e, s) => {
+  writeJSON('settings.json', { ...sanitizeSettings({ ...s }), configVersion: CONFIG_VERSION });
+  return true;
+});
 ipcMain.handle('conv:get', () => readJSON('conversations.json', []));
 ipcMain.handle('conv:set', (_e, c) => { writeJSON('conversations.json', c); return true; });
 
@@ -306,8 +318,26 @@ function listSkills() {
 ipcMain.handle('skills:list', () => listSkills());
 
 // ==================== 内置技能（随包分发，首次启动自动安装） ====================
-const BUNDLED_SKILLS = [{ id: 'skill_hcy', dir: 'skill_hcy', name: 'hcy-fan-insider',
-                          description: '华晨宇粉丝圈层知识库（非官方视角）' }];
+// 火星小厨房 不预置任何技能：PerPer 时代的 hcy 粉丝知识库与本产品无关，已移除。
+// 技能能力本身完整保留，用户可在「设置 → 技能」里自行安装。
+const BUNDLED_SKILLS = [];
+
+// 历史遗留清理：早期版本随包播种过 skill_hcy，升级后从设置与磁盘里移除
+const REMOVED_SKILLS = ['skill_hcy'];
+function cleanupRemovedSkills(settings) {
+  try {
+    let changed = false;
+    if (Array.isArray(settings.skills) && settings.skills.some((s) => REMOVED_SKILLS.indexOf(s.id) >= 0)) {
+      settings.skills = settings.skills.filter((s) => REMOVED_SKILLS.indexOf(s.id) === -1);
+      changed = true;
+    }
+    for (const id of REMOVED_SKILLS) {
+      const dir = path.join(skillsDir(), id);
+      try { if (fs.existsSync(dir)) { fs.rmSync(dir, { recursive: true, force: true }); changed = true; } } catch (_) {}
+    }
+    return changed;
+  } catch (_) { return false; }
+}
 
 /** 找到随包内置的技能源目录（打包后走 extraResource，开发时走项目根目录） */
 function bundledSkillRoot(entry) {
@@ -348,7 +378,9 @@ function seedBundledSkills(settings) {
         } catch (_) {}
         settings.skills.push({
           id: entry.id, name: entry.name, description: entry.description,
-          enabled: true, prompt: prompt,
+          // 火星小厨房 默认不启用随包技能：否则其「perper 猫人设」提示词会覆盖
+          // Skill.md + A.md/shtu 的 Mars 人设。技能本身完整保留，用户可在设置里一键启用。
+          enabled: false, prompt: prompt,
         });
       }
       done.add(entry.id);
@@ -393,7 +425,7 @@ ipcMain.handle('skills:install', async (_e, opts) => {
       if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
       fs.cpSync(src, dest, { recursive: true });
     } else if (/\.zip$/i.test(src)) {
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'perper-skill-'));
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mars-kitchen-skill-'));
       const r = require('child_process').spawnSync('unzip', ['-o', '-q', src, '-d', tmp]);
       if (r.status !== 0) return { ok: false, error: '解压失败（需要系统 unzip）：' + String(r.stderr || '').slice(0, 200) };
       const entries = fs.readdirSync(tmp).map((f) => path.join(tmp, f));
@@ -480,6 +512,108 @@ ipcMain.handle('skills:remove', (_e, id) => {
 
 ipcMain.handle('skills:open-folder', () => {
   try { fs.mkdirSync(skillsDir(), { recursive: true }); shell.openPath(skillsDir()); return true; } catch (_) { return false; }
+});
+
+// ==================== 火星小厨房 人设档案（Skill.md / A.md / shtu / 档位映射） ====================
+// System Prompt 的静态素材来源：
+//   Skill.md     全局总能力、全局规则（所有版本共用）
+//   A.md         普通版人设（仅普通版加载）
+//   shtu         老年人版人设（仅老年人版加载，含长辈称呼与居家安全提醒）
+//   档位映射.md   辣/甜/咸 + 忌口过敏的参数映射规则（每次请求追加到 System Prompt 末尾）
+// 随包分发：打包后在 Contents/Resources/mars_profile，开发时在项目根目录 mars_profile/。
+// 首次启动复制到 userData/mars_profile（用户可自由编辑），读取时「用户目录优先、随包目录兜底」。
+const MARS_PROFILE_DIRNAME = 'mars_profile';
+const MARS_FILES = {
+  skill: ['Skill.md', 'skill.md', 'SKILL.md'],
+  personaNormal: ['A.md', 'a.md'],
+  personaElderly: ['shtu.md', 'shtu', 'shtu.markdown'],
+  levels: ['档位映射.md', '档位映射', 'levels.md'],
+};
+
+const marsProfileUserDir = () => path.join(app.getPath('userData'), MARS_PROFILE_DIRNAME);
+
+/** 随包人设档案目录（打包走 extraResource，开发走项目根目录） */
+function bundledMarsRoot() {
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, MARS_PROFILE_DIRNAME) : null,
+    path.join(__dirname, MARS_PROFILE_DIRNAME),
+    path.join(__dirname, '..', MARS_PROFILE_DIRNAME),
+  ].filter(Boolean);
+  for (const c of candidates) {
+    try { if (fs.existsSync(path.join(c, 'Skill.md'))) return c; } catch (_) {}
+  }
+  return null;
+}
+
+/** 首次启动把随包人设档案播种到用户数据目录（只做一次；用户已改过的文件不会被覆盖） */
+function seedMarsProfile(settings) {
+  try {
+    if (settings.seededMarsProfile) return false;
+    const src = bundledMarsRoot();
+    if (!src) return false;
+    const dst = marsProfileUserDir();
+    if (!fs.existsSync(path.join(dst, 'Skill.md'))) {
+      fs.mkdirSync(dst, { recursive: true });
+      fs.cpSync(src, dst, { recursive: true, filter: (p) => !path.basename(p).startsWith('.') });
+    }
+    settings.seededMarsProfile = true;
+    return true;
+  } catch (_) { return false; }
+}
+
+/** 读取人设文件：用户目录 → 随包目录，按候选文件名依次尝试 */
+function readMarsFile(names) {
+  const roots = [marsProfileUserDir(), bundledMarsRoot()].filter(Boolean);
+  for (const root of roots) {
+    for (const n of names) {
+      const p = path.join(root, n);
+      try {
+        if (fs.existsSync(p) && fs.statSync(p).isFile()) return { file: n, text: fs.readFileSync(p, 'utf8'), path: p };
+      } catch (_) { /* ignore */ }
+    }
+  }
+  return null;
+}
+
+/** 汇总四份素材（供前端「预加载」后用 Mars.buildSystemPrompt 组装） */
+function loadMarsProfile() {
+  const bundle = (names, label) => {
+    const r = readMarsFile(names);
+    return r ? { label: label, file: r.file, path: r.path, text: r.text } : { label: label, file: null, path: null, text: '', missing: true };
+  };
+  const files = {
+    skill: bundle(MARS_FILES.skill, 'Skill.md'),
+    personaNormal: bundle(MARS_FILES.personaNormal, 'A.md'),
+    personaElderly: bundle(MARS_FILES.personaElderly, 'shtu'),
+    levels: bundle(MARS_FILES.levels, '档位映射'),
+  };
+  const missing = Object.keys(files).filter((k) => files[k].missing).map((k) => files[k].label);
+  const userDir = marsProfileUserDir();
+  return {
+    ok: missing.length < 4,
+    dir: fs.existsSync(userDir) ? userDir : (bundledMarsRoot() || ''),
+    userDir: userDir,
+    bundledDir: bundledMarsRoot() || '',
+    files: files,
+    missing: missing,
+  };
+}
+
+ipcMain.handle('mars:profile', () => loadMarsProfile());
+ipcMain.handle('mars:open-folder', () => {
+  try { fs.mkdirSync(marsProfileUserDir(), { recursive: true }); shell.openPath(marsProfileUserDir()); return true; } catch (_) { return false; }
+});
+// 恢复出厂人设：清空用户目录后从随包目录重新播种（用户在设置面板里主动触发）
+ipcMain.handle('mars:reset-profile', () => {
+  try {
+    const src = bundledMarsRoot();
+    const dst = marsProfileUserDir();
+    if (src && fs.existsSync(dst)) fs.rmSync(dst, { recursive: true, force: true });
+    if (src) { fs.mkdirSync(dst, { recursive: true }); fs.cpSync(src, dst, { recursive: true, filter: (p) => !path.basename(p).startsWith('.') }); }
+    return loadMarsProfile();
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
 });
 
 // ==================== 联网搜索（DuckDuckGo，无需 API Key） ====================
@@ -748,6 +882,15 @@ async function fetchPage(url, maxChars) {
 }
 
 ipcMain.handle('search:web', async (_e, opts) => {
+  // 测试用桩：MARS_MOCK_SEARCH=1 时返回确定性结果，避免端到端测试依赖外网
+  if (env('MOCK_SEARCH')) {
+    const q = String((opts && opts.query) || '');
+    const results = [
+      { title: 'Mock 结果 A：' + q, url: 'https://example.com/a?q=' + encodeURIComponent(q), snippet: '这是测试桩返回的摘要 A，包含辣度与忌口相关信息。' },
+      { title: 'Mock 结果 B：' + q, url: 'https://example.com/b?q=' + encodeURIComponent(q), snippet: '这是测试桩返回的摘要 B，包含盐分与糖分相关提示。' },
+    ];
+    return { ok: true, engine: 'mock', results: results.slice(0, Math.max(1, Number((opts && opts.maxResults) || 6))) };
+  }
   try {
     return Object.assign({ ok: true }, await webSearch((opts && opts.query) || '', opts && opts.maxResults));
   } catch (e) {
@@ -791,7 +934,7 @@ function bundledSitePackages() {
 function resolveTtsRunner() {
   const settings = readJSON('settings.json', {}) || {};
   const venvCandidates = [
-    process.env.PERPER_TTS_PYTHON,
+    env('TTS_PYTHON'),
     settings.ttsPython,
     process.resourcesPath ? path.join(process.resourcesPath, '.venv', 'bin', 'python3') : null,
     path.join(__dirname, '.venv', 'bin', 'python3'),
@@ -815,7 +958,7 @@ function runEdgeTts({ text, voice, rate, volume, pitch }) {
     const runner = resolveTtsRunner();
     if (!runner) { resolve({ ok: false, error: 'no-python' }); return; }
     const py = runner.python;
-    const dir = path.join(os.tmpdir(), 'perper-tts');
+    const dir = path.join(os.tmpdir(), 'mars-kitchen-tts');
     fs.mkdirSync(dir, { recursive: true });
     const stamp = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     const mp3 = path.join(dir, stamp + '.mp3');
@@ -926,17 +1069,17 @@ function buildMenu() {
     ...(isMac ? [{
       label: app.name,
       submenu: [
-        { role: 'about', label: '关于 PerPer' },
+        { role: 'about', label: '关于火星小厨房' },
         { type: 'separator' },
         { label: '设置…', accelerator: 'Cmd+,', click: send('settings') },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
-        { role: 'hide', label: '隐藏 PerPer' },
+        { role: 'hide', label: '隐藏火星小厨房' },
         { role: 'hideOthers', label: '隐藏其他' },
         { role: 'unhide', label: '全部显示' },
         { type: 'separator' },
-        { role: 'quit', label: '退出 PerPer' },
+        { role: 'quit', label: '退出火星小厨房' },
       ],
     }] : []),
     {
@@ -988,11 +1131,11 @@ function buildMenu() {
 // ---------- 窗口 ----------
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1120,
-    height: 760,
-    minWidth: 820,
-    minHeight: 580,
-    title: 'PerPer',
+    width: 1320,          // 侧边栏 + 对话区 + Control 控制面板 + 虚拟形象
+    height: 820,
+    minWidth: 960,
+    minHeight: 600,
+    title: '火星小厨房',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 16 },
     backgroundColor: '#f7f7f8',
@@ -1017,7 +1160,7 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 
   // ---- UI 自检（仅当设置 PERPER_SELFTEST=1 时启用，不影响正常使用）----
-  if (process.env.PERPER_SELFTEST) {
+  if (env('SELFTEST')) {
     mainWindow.webContents.on('console-message', (_e, ...args) => {
       const msg = typeof args[0] === 'object' && args[0] !== null
         ? (args[0].message || JSON.stringify(args[0]))
@@ -1028,7 +1171,7 @@ function createWindow() {
       setTimeout(async () => {
         try {
           const shot = (name) => mainWindow.webContents.capturePage().then((img) => {
-            const dir = process.env.PERPER_SHOT_DIR;
+            const dir = env('SHOT_DIR');
             if (dir) fs.writeFileSync(path.join(dir, name), img.toPNG());
           });
           const basics = await mainWindow.webContents.executeJavaScript(`(() => ({
@@ -1042,7 +1185,7 @@ function createWindow() {
           console.log('SELFTEST_BASICS ' + JSON.stringify(basics));
           await shot('01-welcome.png');
 
-          if (process.env.PERPER_SELFTEST_CHAT) {
+          if (env('SELFTEST_CHAT')) {
             // —— 1. 模拟粘贴一个文本附件 ——
             await mainWindow.webContents.executeJavaScript(`
               (async () => {
@@ -1065,7 +1208,7 @@ function createWindow() {
               ta.dispatchEvent(new Event('input', { bubbles: true }));
               document.getElementById('btn-send').click();
             })()`);
-            await new Promise((r) => setTimeout(r, process.env.PERPER_SELFTEST_NOSWITCH ? 300 : 1200));
+            await new Promise((r) => setTimeout(r, env('SELFTEST_NOSWITCH') ? 300 : 1200));
             const duringA = await mainWindow.webContents.executeJavaScript(`(() => ({
               btnStop: document.getElementById('btn-send').classList.contains('stop'),
               indicator: !document.getElementById('stream-indicator').classList.contains('hidden'),
@@ -1074,7 +1217,7 @@ function createWindow() {
 
             // —— 3. 并行状态 / 草稿隔离测试（PERPER_SELFTEST_NOSWITCH=1 时跳过，
             //      用于纯观察“深度思考框随流式动态创建”） ——
-            if (!process.env.PERPER_SELFTEST_NOSWITCH) {
+            if (!env('SELFTEST_NOSWITCH')) {
             // —— 3. 生成中切到新对话 B：按钮应是“发送”，输入应为空 ——
             await mainWindow.webContents.executeJavaScript(`document.getElementById('btn-new').click()`);
             await new Promise((r) => setTimeout(r, 400));
@@ -1153,7 +1296,7 @@ function createWindow() {
             console.log('SELFTEST_CHAT ' + JSON.stringify(chatResult));
 
             // 回答刚结束的瞬间采样：确认「AI 输出 → 自动播报」已触发
-            if (process.env.PERPER_SELFTEST_AVATAR) {
+            if (env('SELFTEST_AVATAR')) {
               const auto = await mainWindow.webContents.executeJavaScript(`(() => ({
                 speaking: window.Speech ? window.Speech.isSpeaking() : false,
                 status: document.getElementById('avatar-status').textContent,
@@ -1164,7 +1307,7 @@ function createWindow() {
             }
 
             // —— 7. 切回 B（标题为“新对话”的那一项）：草稿应保留 ——
-            if (!process.env.PERPER_SELFTEST_NOSWITCH) {
+            if (!env('SELFTEST_NOSWITCH')) {
             await mainWindow.webContents.executeJavaScript(`(() => {
               const items = [...document.querySelectorAll('#conv-list .conv-item')];
               const target = items.find(it => {
@@ -1184,18 +1327,20 @@ function createWindow() {
           }
 
           // —— 通用调试：执行一个 JS 文件并把结果打进日志 ——
-          if (process.env.PERPER_SELFTEST_EVAL) {
+          if (env('SELFTEST_EVAL')) {
             try {
-              const js = fs.readFileSync(process.env.PERPER_SELFTEST_EVAL, 'utf8');
+              const js = fs.readFileSync(env('SELFTEST_EVAL'), 'utf8');
               const out = await mainWindow.webContents.executeJavaScript(js);
               console.log('SELFTEST_EVAL ' + JSON.stringify(out));
+              // 可选：探针跑完后截一张图，便于人工核对界面
+              if (env('SELFTEST_EVAL_SHOT')) await shot(env('SELFTEST_EVAL_SHOT'));
             } catch (e) {
               console.log('SELFTEST_EVAL_ERROR ' + JSON.stringify(String(e && e.message ? e.message : e)));
             }
           }
 
           // —— 虚拟形象自检 ——
-          if (process.env.PERPER_SELFTEST_AVATAR) {
+          if (env('SELFTEST_AVATAR')) {
             // 等待形象加载完成
             const av = await new Promise((resolve) => {
               const t0 = Date.now();
@@ -1226,7 +1371,7 @@ function createWindow() {
             const speechTry = await mainWindow.webContents.executeJavaScript(`(() => {
               const sys = window.Speech ? window.Speech.systemVoices() : [];
               const cfg = window.Speech ? window.Speech.config() : {};
-              if (window.Speech) window.Speech.speak('你好，我是 PerPer 助手。'); // 异步：不等待
+              if (window.Speech) window.Speech.speak('你好，我是火星小厨房助手。'); // 异步：不等待
               return { started: !!window.Speech, engine: cfg.engine, voice: cfg.voice, systemVoices: sys.length };
             })()`);
             await new Promise((r) => setTimeout(r, 1500));
@@ -1257,7 +1402,7 @@ function createWindow() {
           }
 
           // —— 技能面板截图 ——
-          if (process.env.PERPER_SELFTEST_SKILLS) {
+          if (env('SELFTEST_SKILLS')) {
             await mainWindow.webContents.executeJavaScript(`document.getElementById('btn-settings').click()`);
             await new Promise((r) => setTimeout(r, 1200));
             const info = await mainWindow.webContents.executeJavaScript(`(() => {
@@ -1279,7 +1424,7 @@ function createWindow() {
           }
 
           // —— 拖动旋转截图（验证水平旋转渲染）——
-          if (process.env.PERPER_SELFTEST_ROTATE) {
+          if (env('SELFTEST_ROTATE')) {
             // 等模型加载完成
             await new Promise((resolve) => {
               const t0 = Date.now();
@@ -1297,7 +1442,7 @@ function createWindow() {
           }
 
           // —— 联网搜索自检与截图 ——
-          if (process.env.PERPER_SELFTEST_SEARCH) {
+          if (env('SELFTEST_SEARCH')) {
             await mainWindow.webContents.executeJavaScript(`(() => {
               const ta = document.getElementById('input');
               ta.value = '搜索一下 DeepSeek V4 有哪些新特性';
@@ -1330,7 +1475,7 @@ function createWindow() {
           }
 
           // —— 文件夹视图自检与截图 ——
-          if (process.env.PERPER_SELFTEST_FOLDER) {
+          if (env('SELFTEST_FOLDER')) {
             await mainWindow.webContents.executeJavaScript(`(() => {
               document.getElementById('btn-view-toggle').click();   // 切到文件夹视图
             })()`);
@@ -1365,7 +1510,7 @@ function createWindow() {
             await shot('07-traffic-lights.png');
 
             // 在窗口里发一条消息（真实 API），验证窗口内流式渲染
-            if (process.env.PERPER_SELFTEST_FOLDER_CHAT) {
+            if (env('SELFTEST_FOLDER_CHAT')) {
               await mainWindow.webContents.executeJavaScript(`(() => {
                 const ta = document.querySelector('.conv-window .cw-input');
                 ta.value = '用一句话说明你叫什么名字';

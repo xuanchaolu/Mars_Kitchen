@@ -1,4 +1,4 @@
-/* PerPer 3D 虚拟形象模块（three.js + @pixiv/three-vrm）
+/* 火星小厨房 3D 虚拟形象模块（three.js + @pixiv/three-vrm）
  * 用 esbuild 打包成 renderer/js/avatar.bundle.js，向渲染进程暴露 window.NiuAvatar3D
  * 职责：加载 VRM、渲染循环、待机动作（呼吸/眨眼/摆动）、口型同步、表情
  */

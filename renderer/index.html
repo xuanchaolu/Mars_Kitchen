@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src https: http: blob: data:; font-src 'self'; media-src 'self' blob:; worker-src 'self' blob:" />
-  <title>PerPer</title>
+  <title>火星小厨房</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -30,7 +30,7 @@
     <main id="main">
       <header id="topbar">
         <div class="topbar-left">
-          <span class="brand">PerPer <span class="brand-sub">AI</span></span>
+          <span class="brand">火星小厨房 <span class="brand-sub">AI</span></span>
         </div>
         <div class="topbar-right">
           <span id="stream-indicator" class="stream-indicator hidden">
@@ -105,7 +105,7 @@
       </div>
       <div class="avatar-foot">
         <div class="avatar-meta">
-          <span class="avatar-name" id="avatar-name">PerPer</span>
+          <span class="avatar-name" id="avatar-name">火星小厨房</span>
           <span class="avatar-status" id="avatar-status">待机中</span>
         </div>
         <div class="avatar-btns">
@@ -176,6 +176,48 @@
         <div id="skill-list" class="skill-list"></div>
 
         <div class="divider"></div>
+        <div class="section-title">人群模式与口味（System Prompt 参数）</div>
+        <div class="field-row">
+          <label class="check-label">
+            <input type="checkbox" id="set-elder" />
+            <span>老年模式（放大字号 · 长辈称呼 · 做饭用火安全提醒）</span>
+          </label>
+        </div>
+        <div class="field-row mars-grid">
+          <div class="field">
+            <label>辣度</label>
+            <select id="set-spicy" class="mars-select"></select>
+          </div>
+          <div class="field">
+            <label>甜度</label>
+            <select id="set-sweet" class="mars-select"></select>
+          </div>
+          <div class="field">
+            <label>咸度</label>
+            <select id="set-salty" class="mars-select"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>忌口 &amp; 过敏（全局生效，涉及食材必遵守）</label>
+          <input id="set-avoid" class="mars-input" type="text" maxlength="500" spellcheck="false" placeholder="例如：虾过敏，不吃葱" />
+        </div>
+        <div class="field-hint">口味档位只对美食、菜谱类问题生效。</div>
+
+        <div class="divider"></div>
+        <div class="section-title">火星小厨房 人设档案（System Prompt 素材）</div>
+        <div class="field-hint">
+          完整 System Prompt = <code>Skill.md</code> 全文 +（<code>A.md</code> 普通版 / <code>shtu</code> 老年模式 二选一）
+          + <code>档位映射.md</code> + 当前参数快照。文件位于
+          <code>~/Library/Application Support/火星小厨房/mars_profile/</code>，可直接编辑后点「重新加载」。
+        </div>
+        <div class="model-row">
+          <button class="btn-secondary btn-sm" id="btn-mars-folder">打开人设目录</button>
+          <button class="btn-secondary btn-sm" id="btn-mars-reload">重新加载</button>
+          <button class="btn-secondary btn-sm" id="btn-mars-reset">恢复出厂人设</button>
+        </div>
+        <div id="mars-profile-status" class="field-hint" style="margin-top:6px"></div>
+
+        <div class="divider"></div>
         <div class="section-title">虚拟形象与语音</div>
         <div class="field-row">
           <label class="check-label">
@@ -242,11 +284,77 @@
           <label>系统语音语速：<span id="rate-val">1.0</span></label>
           <input type="range" id="set-avatarRate" min="0.6" max="1.8" step="0.1" />
         </div>
-        <p class="modal-note">PerPer <b>v4.3.0</b> · API Key 仅保存在本机（~/Library/Application Support/PerPer）。</p>
+        <p class="modal-note">火星小厨房 <b>v5.0.0</b> · API Key 仅保存在本机（~/Library/Application Support/火星小厨房）。</p>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btn-cancel-settings">取消</button>
         <button class="btn-primary" id="btn-save-settings">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 首次启动引导弹窗：老年模式 / 口味档位 / 忌口过敏（之后可在「设置」里随时修改） -->
+  <div id="onboard-overlay" class="overlay hidden">
+    <div class="modal onboard-modal">
+      <div class="modal-header">
+        <h2>欢迎使用火星小厨房</h2>
+      </div>
+      <div class="modal-body">
+        <p class="onboard-lead">先花 10 秒设置一下，之后随时能在「设置」里修改。</p>
+
+        <label class="switch-row" for="ob-elder">
+          <span class="switch-text">
+            <b>老年模式</b>
+            <small>放大字号 · 用「您」称呼 · 做饭用火时提醒关好煤气</small>
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="ob-elder" />
+            <span class="slider"></span>
+          </span>
+        </label>
+
+        <div class="divider"></div>
+        <div class="section-title">口味档位（仅美食、菜谱类问题生效）</div>
+        <div class="field-row mars-grid">
+          <div class="field">
+            <label>辣度</label>
+            <select id="ob-spicy" class="mars-select"></select>
+          </div>
+          <div class="field">
+            <label>甜度</label>
+            <select id="ob-sweet" class="mars-select"></select>
+          </div>
+          <div class="field">
+            <label>咸度</label>
+            <select id="ob-salty" class="mars-select"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>忌口 &amp; 过敏（全局生效，涉及食材必遵守）</label>
+          <input id="ob-avoid" class="mars-input" type="text" maxlength="500" spellcheck="false" placeholder="例如：虾过敏，不吃葱" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="ob-defaults">恢复默认</button>
+        <button class="btn-primary" id="ob-save">开始使用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 老年模式 + 辣/甜/咸最高两档：健康提醒（可返回修改或确认） -->
+  <div id="health-overlay" class="overlay health-overlay hidden">
+    <div class="modal health-modal">
+      <div class="modal-header">
+        <h2>健康提醒</h2>
+      </div>
+      <div class="modal-body">
+        <p class="health-lead">您开启了老年模式，同时选了偏高口味的档位。长辈的肠胃、血糖、血压都更敏感，建议先看一下：</p>
+        <div id="health-list" class="health-list"></div>
+        <p class="health-foot">可以「返回修改」换成更清淡的档位，也可以「确认并继续」保留现在的口味。</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="health-back">返回修改</button>
+        <button class="btn-primary" id="health-ok">确认并继续</button>
       </div>
     </div>
   </div>
@@ -256,6 +364,7 @@
 
   <script src="js/markdown.js"></script>
   <script src="js/files.js"></script>
+  <script src="js/mars.js"></script>
   <script src="js/api.js"></script>
   <script src="js/avatar.bundle.js"></script>
   <script src="js/speech.js"></script>

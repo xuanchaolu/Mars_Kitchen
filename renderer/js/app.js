@@ -1,4 +1,4 @@
-/* PerPer — 应用主逻辑
+/* 火星小厨房 — 应用主逻辑
  * - 输入草稿 / 生成状态均按对话隔离，支持多对话并行生成
  * - 支持附加图片（视觉）与文本/PDF 文件
  */
@@ -84,6 +84,30 @@
     fieldTtsRate: $('field-ttsRate'),
     fieldSystemVoice: $('field-systemVoice'),
     fieldSystemRate: $('field-systemRate'),
+    // 火星小厨房：首次启动引导弹窗（老年模式 / 口味档位 / 忌口过敏）
+    onboardOverlay: $('onboard-overlay'),
+    obElder: $('ob-elder'),
+    obSpicy: $('ob-spicy'),
+    obSweet: $('ob-sweet'),
+    obSalty: $('ob-salty'),
+    obAvoid: $('ob-avoid'),
+    obDefaults: $('ob-defaults'),
+    obSave: $('ob-save'),
+    // 老年模式高档位健康提醒
+    healthOverlay: $('health-overlay'),
+    healthList: $('health-list'),
+    healthBack: $('health-back'),
+    healthOk: $('health-ok'),
+    // 火星小厨房：设置面板里的同款控件 + 人设档案管理
+    setElder: $('set-elder'),
+    setSpicy: $('set-spicy'),
+    setSweet: $('set-sweet'),
+    setSalty: $('set-salty'),
+    setAvoid: $('set-avoid'),
+    btnMarsFolder: $('btn-mars-folder'),
+    btnMarsReload: $('btn-mars-reload'),
+    btnMarsReset: $('btn-mars-reset'),
+    marsProfileStatus: $('mars-profile-status'),
   };
 
   const SVG_SEND = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3.4 20.4 20.85 12 3.4 3.6l.01 6.53L15.6 12 3.41 13.87 3.4 20.4z"/></svg>';
@@ -101,6 +125,7 @@
     folderSelection: null,   // 文件夹视图选中的对话
     folderClipboard: null,   // ⌘C 复制的对话（用于 ⌘V 分叉）
     dragging: null,
+    marsProfile: null,       // 火星小厨房 人设档案（Skill.md / A.md / shtu / 档位映射）预加载缓存
   };
   let attachments = []; // 当前输入的待发送附件（与草稿同步）
 
@@ -225,11 +250,11 @@
     w.className = 'welcome';
     const model = state.settings ? state.settings.model : '';
     w.innerHTML =
-      '<div class="welcome-logo"><img class="avatar-img" src="assets/logo.png" alt="PerPer"></div>' +
-      '<h1>PerPer AI</h1>' +
-      '<div class="sub">连接 OpenRouter · 模型 <code>' + escapeHtml(model) + '</code> · 支持拖入图片/文件</div>' +
+      '<div class="welcome-logo"><img class="avatar-img" src="assets/logo.png" alt="火星小厨房"></div>' +
+      '<h1>火星小厨房 AI</h1>' +
+      '<div class="sub">DeepSeek 接口 · 模型 <code>' + escapeHtml(model) + '</code> · Skill.md + 人设（A.md / shtu）+ 档位映射</div>' +
       '<div class="chips">' +
-      ['帮我解释一个技术概念', '写一段 Swift 代码', '把这段文字翻译成英文', '帮我头脑风暴几个创意']
+      ['番茄炒蛋怎么做才好吃？', '给我一份一周的清淡家常菜谱', '冰箱里有鸡蛋和青椒，能做什么？', '帮我规划一次家庭聚餐的菜单']
         .map((s) => '<button class="chip">' + s + '</button>').join('') +
       '</div>';
     w.querySelectorAll('.chip').forEach((chip) => {
@@ -309,10 +334,10 @@
     if (reasoning && !lastStreaming) row.dataset.autoCollapsed = '1';
     row.innerHTML =
       '<div class="msg-inner">' +
-        '<div class="avatar"><img class="avatar-img" src="assets/logo.png" alt="PerPer"></div>' +
+        '<div class="avatar"><img class="avatar-img" src="assets/logo.png" alt="火星小厨房"></div>' +
         '<div class="msg-content">' +
           '<div class="msg-head">' +
-            '<span class="msg-name">PerPer</span>' +
+            '<span class="msg-name">火星小厨房</span>' +
             '<span class="msg-actions">' +
               '<button class="act-copy" title="复制内容"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-1A1.5 1.5 0 0 0 9 3H4.5A1.5 1.5 0 0 0 3 4.5V9a1.5 1.5 0 0 0 1.5 1.5h1"/></svg></button>' +
               '<button class="act-regen" title="重新生成"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg></button>' +
@@ -323,7 +348,7 @@
           (reasoning
             ? '<div class="reason-box"><button class="reason-toggle' + (lastStreaming ? ' open' : '') + '"><svg class="chev" viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg><span class="reason-label">' + escapeHtml(reasonLabel) + '</span></button><div class="reason-body' + (lastStreaming ? '' : ' hidden') + '">' + escapeHtml(reasoning) + '</div></div>'
             : '') +
-          '<div class="' + bodyClass + '">' + (m.content ? Markdown.render(m.content) : (lastStreaming ? '<span class="typing-cursor"></span>' : '<span>思考中…</span>')) + '</div>' +
+          '<div class="' + bodyClass + '">' + (m.content ? marsAnswerHtml(m, lastStreaming) : (lastStreaming ? '<span class="typing-cursor"></span>' : '<span>思考中…</span>')) + '</div>' +
         '</div>' +
       '</div>';
 
@@ -493,7 +518,7 @@
           bodyEl.innerHTML = escapeHtml(last.content);
         } else if (last.content) {
           bodyEl.className = 'assistant-body';
-          bodyEl.innerHTML = Markdown.render(last.content) + (streamingNow ? '<span class="typing-cursor"></span>' : '');
+          bodyEl.innerHTML = marsAnswerHtml(last, streamingNow);
           bindCodeCopy(bodyEl);
         } else {
           bodyEl.className = 'assistant-body empty';
@@ -620,7 +645,7 @@
     if (!results.length) return { context: '', steps: [{ type: 'search', query: query, results: [], error: '这次没搜到可用的资料' }] };
     const lines = results.map((x, i) => '[' + (i + 1) + '] ' + x.title + '\n' + x.url + '\n' + (x.snippet || '')).join('\n\n');
     return {
-      context: '以下是咪（应用）刚刚在内部检索到的资料，供你作答参考。回答时绝对不能提及其来源或检索过程（不许说搜/查/资料/网上/公开信息等），要当成你自己知道的事，用咪的口吻说出来：\n\n' + lines,
+      context: '以下是应用刚刚在内部检索到的资料，供你作答参考。回答时不要提及检索过程或资料来源（不要出现「搜索 / 查询 / 资料 / 网上 / 公开信息」等字样），要自然地组织进回答里：\n\n' + lines,
       steps: [{ type: 'search', query: query, results: results.map((x) => ({ title: x.title, url: x.url })), engine: r && r.engine }],
     };
   }
@@ -707,7 +732,7 @@
         messages: history,
         tools: tools,
         signal: ctrl.signal,
-        systemPrompt: resolveSystemPrompt(),     // 技能提示词优先于全局
+        systemPrompt: resolveSystemPrompt(lastUser && lastUser.content),     // Mars 人设 + 技能提示词
         skillsContext: buildSkillsContext(),     // 启用技能的说明
         extraContext: autoContext,               // 自动预搜索的资料
         onDelta: (d) => applyDelta(conv.id, d),
@@ -756,7 +781,7 @@
           settings: state.settings,
           messages: buildHistory(conv).concat([{ role: 'user', content: noToolHint }]),
           signal: ctrl.signal,
-          systemPrompt: resolveSystemPrompt(),
+          systemPrompt: resolveSystemPrompt(lastUser && lastUser.content),
           skillsContext: buildSkillsContext(),
           extraContext: autoContext,
           onDelta: (d) => applyDelta(conv.id, d),
@@ -1055,6 +1080,8 @@
     }
     if (els.setAvatarEnabled) els.setAvatarEnabled.checked = !!state.settings.avatarEnabled;
     if (els.setAvatarAutoSpeak) els.setAvatarAutoSpeak.checked = !!state.settings.avatarAutoSpeak;
+    syncMarsControls();
+    renderMarsProfileStatus();
     if (els.setAvatarRate) {
       els.setAvatarRate.value = String(state.settings.avatarRate != null ? state.settings.avatarRate : 1);
       if (els.rateVal) els.rateVal.textContent = Number(els.setAvatarRate.value).toFixed(1);
@@ -1065,6 +1092,7 @@
 
   function closeSettings() {
     els.settingsOverlay.classList.add('hidden');
+    applyElderMode();   // 取消「老年模式」预览，回到已保存的状态
   }
 
   function saveSettings() {
@@ -1093,14 +1121,23 @@
     if (els.setWebSearchRounds) state.settings.webSearchRounds = parseInt(els.setWebSearchRounds.value, 10) || 3;
     applySpeechConfig();
     applyMouthSpeed();
-    window.niuai.setSettings(state.settings).then(() => {
-      els.modelBadge.textContent = model;
-      closeSettings();
-      toast('设置已保存');
-      if (prevEnabled !== state.settings.avatarEnabled) applyAvatarVisibility();
-      if (prevAuto !== state.settings.avatarAutoSpeak) updateSpeakToggleUI();
-      if (!currentConv() || currentConv().messages.length === 0) renderWelcome();
-    });
+
+    // 人群模式与口味档位（老年模式 / 辣 / 甜 / 咸 / 忌口过敏）
+    // 老年模式 + 最高两档 → 先弹健康提醒，「确认并继续」后才落库
+    const marsValues = marsControlsValues(settingsControls());
+    const commit = () => {
+      Object.assign(state.settings, marsValues);
+      applyElderMode();
+      window.niuai.setSettings(state.settings).then(() => {
+        els.modelBadge.textContent = model;
+        closeSettings();
+        toast('设置已保存');
+        if (prevEnabled !== state.settings.avatarEnabled) applyAvatarVisibility();
+        if (prevAuto !== state.settings.avatarAutoSpeak) updateSpeakToggleUI();
+        if (!currentConv() || currentConv().messages.length === 0) renderWelcome();
+      });
+    };
+    maybeShowHealthWarning(marsValues, commit);
   }
 
   // ---------- 输入框 ----------
@@ -1139,15 +1176,267 @@
 
   const enabledSkills = () => (state.settings && state.settings.skills ? state.settings.skills : []).filter((s) => s.enabled);
 
+  // ==================== 火星小厨房：人设档案 / 人群模式 / 口味档位 ====================
+  const marsReady = () => !!(window.Mars && state.marsProfile);
+
+  /** 当前生效参数快照（调试句柄 / 提示面板用） */
+  function marsSnapshot() {
+    return window.Mars ? window.Mars.snapshot(state.settings) : { versionLabel: '普通版', avoid: '' };
+  }
+
+  /** 统计某个对话的工具调用次数（Control 面板「工具调用计数」） */
+  function marsCounts(conv) {
+    const c = { search: 0, fetch: 0, skill: 0, total: 0 };
+    if (!conv) return c;
+    for (const st of collectSearchSteps(conv)) {
+      if (st.type === 'search') c.search++;
+      else if (st.type === 'fetch') c.fetch++;
+      else if (st.type === 'skill') c.skill++;
+    }
+    c.total = c.search + c.fetch + c.skill;
+    return c;
+  }
+
   /**
-   * 解析本轮使用的 system prompt：
-   * 1) 启用的技能里配置了提示词 → 用技能的（多个则拼接），**覆盖**全局
-   * 2) 技能没配提示词 → 沿用全局 system prompt
+   * 渲染助手回答：只显示正文。
+   * 模型若仍吐出旧的【主体回答】/【提示信息】结构，这里会自动剥掉——
+   * 参数快照与联网搜索次数不再出现在回答里（搜索次数仍由气泡上的搜索框展示）。
    */
-  function resolveSystemPrompt() {
+  function marsAnswerHtml(m, streamingNow) {
+    const raw = (m && m.content) || '';
+    const parsed = window.Mars ? window.Mars.parseOutput(raw) : { body: raw };
+    return Markdown.render(parsed.body) + (streamingNow ? '<span class="typing-cursor"></span>' : '');
+  }
+
+  // ---- 人群模式 / 口味档位控件（首次启动弹窗 + 设置面板共用同一份状态） ----
+
+  /** 是否处于老年模式（决定加载 shtu 人设 + 整体放大字号） */
+  const elderModeOn = () => !!(state.settings && state.settings.marsVersion === 'elderly');
+
+  /** 老年模式预览：只切 body class（弹窗内即时看到字号变化，不写 settings） */
+  function previewElderMode(on) {
+    document.body.classList.toggle('elder-mode', !!on);
+  }
+
+  /** 按 settings 里的老年模式应用字号 */
+  function applyElderMode() {
+    previewElderMode(elderModeOn());
+    return elderModeOn();
+  }
+
+  /** 填充档位下拉（0-4 档，文案与 档位映射.md 一致） */
+  function fillLevelSelect(el, kind, value) {
+    if (!el || !window.Mars) return;
+    const def = window.Mars.LEVELS[kind];
+    el.innerHTML = def.names.map((n, i) => '<option value="' + i + '">' + escapeHtml(n) + '</option>').join('');
+    el.value = String(Math.max(0, Math.min(def.max, Math.round(Number(value) || 0))));
+  }
+
+  const ONBOARD_DEFAULTS = { elderly: false, spicy: 0, sweet: 0, salty: 0, avoid: '' };
+
+  /** 把一组参数值写进一组控件（不改 settings） */
+  function setControls(c, v) {
+    if (!c) return;
+    if (c.elder) c.elder.checked = !!v.elderly;
+    fillLevelSelect(c.spicy, 'spicy', v.spicy);
+    fillLevelSelect(c.sweet, 'sweet', v.sweet);
+    fillLevelSelect(c.salty, 'salty', v.salty);
+    if (c.avoid) c.avoid.value = v.avoid || '';
+  }
+
+  const onboardControls = () => ({ elder: els.obElder, spicy: els.obSpicy, sweet: els.obSweet, salty: els.obSalty, avoid: els.obAvoid });
+  const settingsControls = () => ({ elder: els.setElder, spicy: els.setSpicy, sweet: els.setSweet, salty: els.setSalty, avoid: els.setAvoid });
+
+  /** 把 settings 同步到「首次启动弹窗」与「设置面板」两套控件 */
+  function syncMarsControls() {
+    if (!window.Mars) return;
+    const s = state.settings || {};
+    const v = {
+      elderly: s.marsVersion === 'elderly',
+      spicy: s.marsSpicy, sweet: s.marsSweet, salty: s.marsSalty,
+      avoid: s.marsAvoid || '',
+    };
+    setControls(onboardControls(), v);
+    setControls(settingsControls(), v);
+  }
+
+  /** 读取一组控件 → 参数值（不写回 settings，供确认前先做健康检查） */
+  function marsControlsValues(c) {
+    const lv = (el) => Math.max(0, Math.min(4, parseInt(el && el.value, 10) || 0));
+    return {
+      marsVersion: (c.elder && c.elder.checked) ? 'elderly' : 'normal',
+      marsSpicy: lv(c.spicy),
+      marsSweet: lv(c.sweet),
+      marsSalty: lv(c.salty),
+      marsAvoid: String((c.avoid && c.avoid.value) || '').trim().slice(0, 500),
+    };
+  }
+
+  // ---- 老年模式高档位健康提醒（辣/甜/咸最高两档） ----
+
+  /** 待确认时保存「确认并继续」要执行的动作 */
+  let healthConfirmAction = null;
+
+  /**
+   * 老年模式 + 辣/甜/咸选了最上面两档 → 弹健康提醒
+   * 「返回修改」＝关掉弹窗留在原表单继续改；「确认并继续」＝执行 onConfirm
+   * @param {object} pendingValues 待生效的参数值（尚未写入 settings）
+   * @param {Function} onConfirm   用户确认后执行
+   * @returns {boolean} 是否弹出了提醒
+   */
+  function maybeShowHealthWarning(pendingValues, onConfirm) {
+    const probe = Object.assign({}, state.settings, pendingValues || {});
+    const risks = window.Mars ? window.Mars.healthRisks(probe) : [];
+    if (!risks.length || !els.healthOverlay) {
+      onConfirm();
+      return false;
+    }
+    if (els.healthList) {
+      els.healthList.innerHTML = risks.map((r) =>
+        '<div class="health-item">' +
+          '<b>' + escapeHtml(r.label + ' ' + r.level + ' · ' + r.name) + '</b>' +
+          '<span>' + escapeHtml(r.text) + '</span>' +
+        '</div>').join('');
+    }
+    healthConfirmAction = onConfirm;
+    els.healthOverlay.classList.remove('hidden');
+    return true;
+  }
+
+  function closeHealthWarning() {
+    if (els.healthOverlay) els.healthOverlay.classList.add('hidden');
+    healthConfirmAction = null;
+  }
+
+  function bindHealthWarning() {
+    if (els.healthBack) {
+      els.healthBack.addEventListener('click', () => {
+        closeHealthWarning();
+        toast('可以继续调整档位，调好后再确认');
+      });
+    }
+    if (els.healthOk) {
+      els.healthOk.addEventListener('click', () => {
+        const fn = healthConfirmAction;
+        if (els.healthOverlay) els.healthOverlay.classList.add('hidden');
+        healthConfirmAction = null;
+        if (fn) fn();
+      });
+    }
+  }
+
+  /** 恢复默认：普通模式；辣0 甜0 咸0；忌口为空（只改控件，由弹窗/设置面板的确认按钮落库） */
+  function resetMarsParams(scope) {
+    setControls(scope === 'settings' ? settingsControls() : onboardControls(), ONBOARD_DEFAULTS);
+    if (scope !== 'settings') previewElderMode(false);
+    toast('已恢复默认：普通模式 · 辣0 甜0 咸0 · 忌口为空');
+  }
+
+  // ---- 首次启动引导弹窗 ----
+  function openOnboard() {
+    if (!els.onboardOverlay) return;
+    syncMarsControls();
+    els.onboardOverlay.classList.remove('hidden');
+  }
+
+  function closeOnboard() {
+    if (els.onboardOverlay) els.onboardOverlay.classList.add('hidden');
+  }
+
+  /** 首次打开 App（settings 里没有 marsOnboarded 标记）时弹出设置向导 */
+  function maybeShowOnboard() {
+    if (!els.onboardOverlay) return false;
+    if (state.settings && state.settings.marsOnboarded === true) return false;
+    openOnboard();
+    return true;
+  }
+
+  /** 预加载人设档案（Skill.md / A.md / shtu / 档位映射） */
+  async function loadMarsProfile(force) {
+    if (!window.Mars) return null;
+    const p = await window.Mars.load(force);
+    state.marsProfile = p;
+    renderMarsProfileStatus();
+    return p;
+  }
+
+  /** 首次启动弹窗 / 设置面板里的人群模式与档位控件：事件绑定 */
+  function bindMarsControls() {
+    if (!window.Mars) return;
+
+    // 老年模式开关：只做字号预览，确认后（开始使用 / 保存）才写回 settings
+    if (els.obElder) {
+      els.obElder.addEventListener('change', () => {
+        previewElderMode(els.obElder.checked);
+        toast(els.obElder.checked ? '已开启老年模式：字号放大 + 长辈称呼 + 居家安全提醒' : '已关闭老年模式');
+      });
+    }
+    if (els.setElder) {
+      els.setElder.addEventListener('change', () => previewElderMode(els.setElder.checked));
+    }
+
+    if (els.obDefaults) els.obDefaults.addEventListener('click', () => resetMarsParams('onboard'));
+    if (els.obSave) {
+      els.obSave.addEventListener('click', () => {
+        const values = marsControlsValues(onboardControls());
+        // 老年模式 + 辣/甜/咸最高两档 → 先弹健康提醒，确认后才落库
+        maybeShowHealthWarning(values, () => {
+          Object.assign(state.settings, values);
+          state.settings.marsOnboarded = true;
+          applyElderMode();
+          window.niuai.setSettings(state.settings).catch(() => {});
+          closeOnboard();
+          toast('设置已保存，随时可在「设置」里修改');
+        });
+      });
+    }
+    bindHealthWarning();
+
+    // 人设档案（System Prompt 素材）管理
+    if (els.btnMarsFolder) els.btnMarsFolder.addEventListener('click', () => window.niuai.marsOpenFolder());
+    if (els.btnMarsReload) {
+      els.btnMarsReload.addEventListener('click', async () => {
+        await loadMarsProfile(true);
+        toast('人设档案已重新加载');
+      });
+    }
+    if (els.btnMarsReset) {
+      els.btnMarsReset.addEventListener('click', async () => {
+        const ok = window.confirm('确定恢复出厂人设档案吗？\n将用随包内容覆盖 mars_profile/ 里对 Skill.md / A.md / shtu / 档位映射.md 的修改。');
+        if (!ok) return;
+        await window.niuai.marsResetProfile();
+        await loadMarsProfile(true);
+        toast('已恢复出厂人设档案');
+      });
+    }
+  }
+
+  function renderMarsProfileStatus() {
+    const box = els.marsProfileStatus;
+    if (!box) return;
+    const info = window.Mars ? window.Mars.profileInfo() : { hasProfile: false };
+    if (!info.hasProfile) { box.textContent = '人设档案状态：未加载'; return; }
+    const mark = (x) => (x ? '✓ ' + x.file + '（' + x.chars + ' 字）' : '✗ 缺失');
+    box.innerHTML = '人设档案：Skill.md ' + mark(info.skill) + ' · A.md ' + mark(info.personaNormal) +
+      ' · shtu ' + mark(info.personaElderly) + ' · 档位映射 ' + mark(info.levels) +
+      (info.dir ? '<br>目录：' + escapeHtml(info.dir) : '');
+  }
+
+  /**
+   * 解析本轮使用的 system prompt（火星小厨房 架构）：
+   *   完整 System Prompt = Skill.md 全文 +（A.md / shtu 二选一）+ 档位映射规则 + 用户当前参数快照
+   *   技能提示词（若启用）与全局系统提示词追加在其后 —— 保留 PerPer 既有能力：
+   *   技能提示词仍然优先于全局系统提示词。
+   */
+  function resolveSystemPrompt(userText) {
+    const marsPrompt = marsReady()
+      ? window.Mars.buildSystemPrompt(state.marsProfile, state.settings, { userText: userText })
+      : '';
     const fromSkills = enabledSkills().map((s) => (s.prompt || '').trim()).filter(Boolean);
-    if (fromSkills.length) return fromSkills.join('\n\n');
-    return (state.settings && state.settings.systemPrompt ? state.settings.systemPrompt : '').trim();
+    const tail = fromSkills.length
+      ? fromSkills
+      : [(state.settings && state.settings.systemPrompt ? state.settings.systemPrompt : '').trim()].filter(Boolean);
+    return [marsPrompt].concat(tail).filter(Boolean).join('\n\n');
   }
 
   /** 启用技能的说明文本（注入到 system 消息里）*/
@@ -2062,7 +2351,13 @@
     els.btnCancelSettings.addEventListener('click', closeSettings);
     els.btnSaveSettings.addEventListener('click', saveSettings);
     els.settingsOverlay.addEventListener('click', (e) => { if (e.target === els.settingsOverlay) closeSettings(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeSettings(); const lb = document.getElementById('lightbox'); if (lb) lb.classList.remove('show'); } });
+    // 首次启动引导弹窗必须点「开始使用」完成设置，因此不支持 Esc / 点空白关闭
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (els.healthOverlay && !els.healthOverlay.classList.contains('hidden')) { closeHealthWarning(); return; }
+      if (!els.settingsOverlay.classList.contains('hidden')) closeSettings();
+      const lb = document.getElementById('lightbox'); if (lb) lb.classList.remove('show');
+    });
     els.setTemperature.addEventListener('input', () => { els.tempVal.textContent = els.setTemperature.value; });
     if (els.setTtsRate) {
       els.setTtsRate.addEventListener('input', () => {
@@ -2197,6 +2492,14 @@
     renderFolderGrid();
     updateComposeUI();
     applyViewMode();
+
+    // 火星小厨房：预加载人设档案（Skill.md / A.md / shtu / 档位映射）
+    // 主界面不再放参数栏与控制面板：首次打开弹窗设置，之后在「设置」里修改。
+    await loadMarsProfile();
+    applyElderMode();
+    bindMarsControls();
+    syncMarsControls();
+    maybeShowOnboard();
   }
 
   if (window.niuai) init().catch((e) => toast('初始化失败：' + e.message));
@@ -2253,6 +2556,42 @@
     rounds: (state.settings && state.settings.webSearchRounds) || 3,
     tools: (window.API && window.API.WEB_TOOLS ? window.API.WEB_TOOLS.length : 0),
   });
+  // 火星小厨房 调试/自检句柄：人设档案、档位参数、组装后的 System Prompt、控制面板计数
+  window.__niuMars = () => {
+    const conv = currentConv();
+    const lastUser = conv ? [...conv.messages].reverse().find((m) => m.role === 'user') : null;
+    return {
+      profile: window.Mars ? window.Mars.profileInfo() : null,
+      settings: {
+        version: state.settings.marsVersion,
+        elderMode: state.settings.marsVersion === 'elderly',
+        spicy: state.settings.marsSpicy,
+        sweet: state.settings.marsSweet,
+        salty: state.settings.marsSalty,
+        avoid: state.settings.marsAvoid,
+        onboarded: state.settings.marsOnboarded === true,
+      },
+      snapshot: window.Mars ? window.Mars.snapshot(state.settings) : null,
+      systemPrompt: resolveSystemPrompt(lastUser ? lastUser.content : ''),
+      counts: marsCounts(conv),
+      elderClass: document.body.classList.contains('elder-mode'),
+      bodyFontSize: getComputedStyle(document.body).fontSize,
+      answerFontSize: (() => {
+        const el = document.querySelector('#messages .assistant-body');
+        return el ? getComputedStyle(el).fontSize : null;
+      })(),
+      onboardVisible: els.onboardOverlay ? !els.onboardOverlay.classList.contains('hidden') : false,
+      mainHasParamBar: !!document.getElementById('mars-bar'),
+      mainHasControlPanel: !!document.getElementById('control-panel'),
+      avatar: {
+        enabled: !!state.settings.avatarEnabled,
+        autoSpeak: !!state.settings.avatarAutoSpeak,
+        model: state.settings.avatarModel,
+        ttsEngine: state.settings.ttsEngine,
+        panelVisible: els.avatarPanel ? !els.avatarPanel.classList.contains('hidden') : false,
+      },
+    };
+  };
   window.__niuAvatarHandle = () => avatar.handle;
   window.__niuSpeakText = (t) => speakText(t);
   // 供自检直接驱动口型（不依赖 TTS 是否可用）

@@ -20,5 +20,9 @@ contextBridge.exposeInMainWorld('niuai', {
   skillsOpenFolder: () => ipcRenderer.invoke('skills:open-folder'),
   webSearch: (opts) => ipcRenderer.invoke('search:web', opts),
   fetchPage: (opts) => ipcRenderer.invoke('search:fetch', opts),
+  // 火星小厨房：人设档案（Skill.md / A.md / shtu / 档位映射）
+  marsProfile: () => ipcRenderer.invoke('mars:profile'),
+  marsOpenFolder: () => ipcRenderer.invoke('mars:open-folder'),
+  marsResetProfile: () => ipcRenderer.invoke('mars:reset-profile'),
   onMenu: (cb) => ipcRenderer.on('menu', (_e, action) => cb(action)),
 });

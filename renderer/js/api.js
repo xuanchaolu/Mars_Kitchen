@@ -252,8 +252,8 @@
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + settings.apiKey,
-          'HTTP-Referer': ascii(settings.referer) || 'https://perper.app',
-          'X-Title': ascii(settings.title) || 'PerPer macOS',
+          'HTTP-Referer': ascii(settings.referer) || 'https://mars-kitchen.app',
+          'X-Title': ascii(settings.title) || 'Mars Kitchen macOS',
         },
         body: JSON.stringify(body),
         signal,
