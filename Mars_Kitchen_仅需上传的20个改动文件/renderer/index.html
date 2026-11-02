@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src https: http: blob: data:; font-src 'self'; media-src 'self' blob:; worker-src 'self' blob:" />
+  <title>火星小厨房</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 侧边栏 -->
+    <aside id="sidebar">
+      <div class="sidebar-drag"></div>
+      <div class="sidebar-body">
+        <button id="btn-new" class="btn-new">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+          <span>新建对话</span>
+        </button>
+        <div id="conv-list" class="conv-list"></div>
+      </div>
+      <div class="sidebar-bottom">
+        <button id="btn-settings" class="icon-btn" title="设置">
+          <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.4"/><path d="M13.4 8c0-.4 0-.8-.1-1.2l1.5-1.1-1.5-2.6-1.8.7a6.6 6.6 0 0 0-2-1.2L9.2.9H5.8l-.3 1.9a6.6 6.6 0 0 0-2 1.2l-1.8-.7L.2 5.7l1.5 1.1c-.1.4-.1.8-.1 1.2s0 .8.1 1.2L.2 10.3l1.5 2.6 1.8-.7a6.6 6.6 0 0 0 2 1.2l.3 1.9h3.4l.3-1.9a6.6 6.6 0 0 0 2-1.2l1.8.7 1.5-2.6-1.5-1.1c.1-.4.1-.8.1-1.2z"/></svg>
+        </button>
+        <span id="model-badge" class="model-badge" title="当前模型">deepseek-flash</span>
+      </div>
+    </aside>
+
+    <!-- 主区域 -->
+    <main id="main">
+      <header id="topbar">
+        <div class="topbar-left">
+          <span class="brand">火星小厨房 <span class="brand-sub">AI</span></span>
+        </div>
+        <div class="topbar-right">
+          <span id="stream-indicator" class="stream-indicator hidden">
+            <span class="dot"></span>生成中…
+          </span>
+          <button id="btn-web-search" class="icon-btn" title="联网搜索">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.2" cy="7.2" r="4.6"/><path d="M10.6 10.6l3 3"/></svg>
+          </button>
+          <button id="btn-view-toggle" class="icon-btn" title="切换显示方式（列表 / 文件夹）">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="5" height="5" rx="1"/><rect x="9" y="2.5" width="5" height="5" rx="1"/><rect x="2" y="8.5" width="5" height="5" rx="1"/><rect x="9" y="8.5" width="5" height="5" rx="1"/></svg>
+          </button>
+          <button id="btn-avatar-toggle" class="icon-btn" title="显示/隐藏虚拟形象">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.6" r="2.8"/><path d="M2.6 14c.6-2.9 2.7-4.4 5.4-4.4s4.8 1.5 5.4 4.4"/></svg>
+          </button>
+          <button id="btn-speak-toggle" class="icon-btn" title="自动播报 AI 输出">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6h2.2L8 3.4v9.2L4.7 10H2.5z"/><path d="M10.6 6.2a2.6 2.6 0 0 1 0 3.6"/><path d="M12.4 4.4a5.2 5.2 0 0 1 0 7.2"/></svg>
+          </button>
+          <button id="btn-top-new" class="btn-top-new">＋ 新对话</button>
+        </div>
+      </header>
+
+      <div id="messages" class="messages">
+        <!-- 欢迎页 / 消息列表 -->
+      </div>
+
+      <div id="input-area">
+        <div id="attach-chips" class="attach-chips hidden"></div>        <div id="input-shell" class="input-shell">
+          <button id="btn-attach" class="btn-attach" title="添加图片或文件">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <textarea id="input" rows="1" placeholder="输入消息…"></textarea>
+          <button id="btn-mic" class="icon-btn voice-mic" title="中文语音提问" aria-label="开始中文语音识别" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="8" y="2" width="8" height="13" rx="4"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>
+          </button>
+          <button id="btn-send" class="btn-send" title="发送 (Enter)">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3.4 20.4 20.85 12 3.4 3.6l.01 6.53L15.6 12 3.41 13.87 3.4 20.4z"/></svg>
+          </button>
+          <input type="file" id="file-input" multiple hidden
+                 accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,.txt,.md,.markdown,.json,.csv,.tsv,.log,.xml,.yml,.yaml,.js,.mjs,.jsx,.ts,.tsx,.py,.rb,.go,.rs,.java,.kt,.swift,.c,.h,.cpp,.cs,.php,.html,.css,.vue,.sh,.sql,.pdf,.svg,.toml,.ini,.conf" />
+        </div>
+        <div class="voice-bar">
+          <button id="btn-voice-chat" class="btn-secondary btn-sm" aria-pressed="false">连续语音对话</button>
+          <span id="voice-status" role="status" aria-live="polite">点击麦克风录音并发送到语音服务 · Esc 取消</span>
+        </div>
+        <div class="input-hint">Enter 发送 · Shift+Enter 换行 · 可拖入 / 粘贴 图片或文件</div>
+      </div>
+    </main>
+
+    <!-- 文件夹视图（文件管理器风格） -->
+    <section id="folder-view" class="folder-view hidden">
+      <div class="folder-toolbar">
+        <div class="folder-path">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h2.6l1.2 1.3h5.2c.7 0 1.2.5 1.2 1.2v6.3c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z"/></svg>
+          <span>全部对话</span>
+          <span id="folder-count" class="folder-count"></span>
+        </div>
+        <div class="folder-tools">
+          <span class="folder-hint">双击打开 · ⌘C/⌘V 分叉 · 右键改图标</span>
+          <button id="btn-view-list" class="btn-secondary btn-sm" title="切回列表显示（⌘1）">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="vertical-align:-1px;margin-right:4px"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg>列表显示
+          </button>
+          <button id="btn-folder-new" class="btn-secondary btn-sm">＋ 新建对话</button>
+        </div>
+      </div>
+      <div id="folder-grid" class="folder-grid"></div>
+    </section>
+
+    <!-- 对话窗口层 -->
+    <div id="window-layer" class="window-layer"></div>
+
+    <!-- 虚拟形象面板 -->
+    <aside id="avatar-panel" class="avatar-panel">
+      <div class="avatar-stage">
+        <canvas id="avatar-canvas"></canvas>
+        <div id="avatar-loading" class="avatar-loading">
+          <div class="avatar-spinner"></div>
+          <span>正在唤醒形象…</span>
+        </div>
+      </div>
+      <div class="avatar-foot">
+        <div class="avatar-meta">
+          <span class="avatar-name" id="avatar-name">火星小厨房</span>
+          <span class="avatar-status" id="avatar-status">待机中</span>
+        </div>
+        <div class="avatar-btns">
+          <button id="btn-avatar-say" class="icon-btn" title="朗读最后一条回答">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6h2.2L8 3.4v9.2L4.7 10H2.5z"/><path d="M10.6 6.2a2.6 2.6 0 0 1 0 3.6"/></svg>
+          </button>
+          <button id="btn-avatar-stop" class="icon-btn" title="停止播报">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1.6"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div id="settings-overlay" class="overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>设置</h2>
+        <button class="icon-btn" id="btn-close-settings">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>API Key</label>
+          <div class="key-row">
+            <input type="password" id="set-apiKey" placeholder="sk-…" spellcheck="false" />
+            <button class="icon-btn" id="btn-toggle-key" title="显示/隐藏">
+              <svg id="eye-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8s2.8-4.5 6.5-4.5S14.5 8 14.5 8s-2.8 4.5-6.5 4.5S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label>接口地址</label>
+          <input type="text" id="set-baseURL" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label>模型</label>
+          <input type="text" id="set-model" spellcheck="false" placeholder="deepseek-flash" />
+          <div class="field-hint">DeepSeek 官方接口：deepseek-flash（快速） / deepseek-v4-pro（更强）</div>
+        </div>
+        <div class="field-row">
+          <label class="check-label">
+            <input type="checkbox" id="set-reasoning" />
+            <span>启用深度推理（reasoning）</span>
+          </label>
+        </div>
+        <div class="field">
+          <label>Temperature：<span id="temp-val">0.7</span></label>
+          <input type="range" id="set-temperature" min="0" max="2" step="0.1" />
+        </div>
+        <div class="field">
+          <label>系统提示词（可选）</label>
+          <textarea id="set-systemPrompt" rows="3" placeholder="例如：你是一位乐于助人的中文助手。"></textarea>
+        </div>
+        <div class="divider"></div>
+        <div class="section-title">技能（Skills）</div>
+        <div class="model-row">
+          <button class="btn-secondary btn-sm" id="btn-skill-install">＋ 安装技能…</button>
+          <button class="btn-secondary btn-sm" id="btn-skill-folder">打开技能目录</button>
+          <button class="btn-secondary btn-sm" id="btn-skill-refresh">刷新</button>
+        </div>
+        <div class="field-hint" style="margin-top:6px">
+          支持文件夹 / <code>SKILL.md</code> / <code>.md</code> / <code>.zip</code>。启用的技能会注入其说明；
+          若技能里配置了「系统提示词」，则**优先于**下面的全局系统提示词（没配就仍用全局的）
+        </div>
+        <div id="skill-list" class="skill-list"></div>
+
+        <div class="divider"></div>
+        <div class="section-title">人群模式与口味（System Prompt 参数）</div>
+        <div class="field-row">
+          <label class="check-label">
+            <input type="checkbox" id="set-elder" />
+            <span>老年模式（放大字号 · 长辈称呼 · 做饭用火安全提醒）</span>
+          </label>
+        </div>
+        <div class="field-row mars-grid">
+          <div class="field">
+            <label>辣度</label>
+            <select id="set-spicy" class="mars-select"></select>
+          </div>
+          <div class="field">
+            <label>甜度</label>
+            <select id="set-sweet" class="mars-select"></select>
+          </div>
+          <div class="field">
+            <label>咸度</label>
+            <select id="set-salty" class="mars-select"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>忌口 &amp; 过敏（全局生效，涉及食材必遵守）</label>
+          <input id="set-avoid" class="mars-input" type="text" maxlength="500" spellcheck="false" placeholder="例如：虾过敏，不吃葱" />
+        </div>
+        <div class="field-hint">口味档位只对美食、菜谱类问题生效。</div>
+
+        <div class="divider"></div>
+        <div class="section-title">火星小厨房 人设档案（System Prompt 素材）</div>
+        <div class="field-hint">
+          完整 System Prompt = <code>Skill.md</code> 全文 +（<code>A.md</code> 普通版 / <code>shtu</code> 老年模式 二选一）
+          + <code>档位映射.md</code> + 当前参数快照。文件位于
+          <code>~/Library/Application Support/火星小厨房/mars_profile/</code>，可直接编辑后点「重新加载」。
+        </div>
+        <div class="model-row">
+          <button class="btn-secondary btn-sm" id="btn-mars-folder">打开人设目录</button>
+          <button class="btn-secondary btn-sm" id="btn-mars-reload">重新加载</button>
+          <button class="btn-secondary btn-sm" id="btn-mars-reset">恢复出厂人设</button>
+        </div>
+        <div id="mars-profile-status" class="field-hint" style="margin-top:6px"></div>
+
+        <div class="divider"></div>
+        <div class="section-title">中文语音识别</div>
+        <div class="field">
+          <label>语音 API Key</label>
+          <input type="password" id="set-sttApiKey" placeholder="填写你自己的语音服务 Key" autocomplete="off" spellcheck="false" />
+          <div class="field-hint">默认 SenseVoiceSmall 在硅基流动官方价格页目前标为免费，限流及使用资格以个人账号为准；此 Key 与上方对话 API Key 独立。</div>
+          <div class="field-hint"><a href="https://cloud.siliconflow.cn/" target="_blank" rel="noreferrer">注册并创建 API Key</a> · <a href="https://www.siliconflow.cn/pricing" target="_blank" rel="noreferrer">查看官方价格</a></div>
+        </div>
+        <div class="field">
+          <label>语音识别接口地址</label>
+          <input type="url" id="set-sttEndpoint" placeholder="https://api.siliconflow.cn/v1/audio/transcriptions" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label>语音识别模型</label>
+          <input type="text" id="set-sttModel" placeholder="FunAudioLLM/SenseVoiceSmall" spellcheck="false" />
+          <div class="field-hint">点击麦克风后，本句录音会发送到你配置的语音服务识别。应用不保存原始录音；识别文字按普通聊天记录保存。</div>
+        </div>
+        <div class="divider"></div>
+        <div class="section-title">虚拟形象与语音</div>
+        <div class="field-row">
+          <label class="check-label">
+            <input type="checkbox" id="set-avatarEnabled" />
+            <span>显示 3D 人物（关闭后不占用界面）</span>
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="check-label">
+            <input type="checkbox" id="set-avatarAutoSpeak" />
+            <span>自动播报 AI 输出（关闭后不发声）</span>
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="check-label">
+            <input type="checkbox" id="set-webSearch" />
+            <span>联网搜索（内置 DuckDuckGo，无需 Key；模型自主决定何时搜索）</span>
+          </label>
+        </div>
+        <div class="field" id="field-webSearchRounds">
+          <label>最多搜索轮次：<span id="rounds-val">3</span></label>
+          <input type="range" id="set-webSearchRounds" min="1" max="6" step="1" />
+        </div>
+        <div class="field" id="field-mouthSpeed">
+          <label>口型速度：<span id="mouthspeed-val">慢</span></label>
+          <input type="range" id="set-mouthSpeed" min="0.5" max="1.5" step="0.05" />
+          <div class="field-hint">偏慢更自然；太快会显得嘴在抖</div>
+        </div>
+        <div class="field" id="field-avatarModel">
+          <label>人物模型</label>
+          <div class="model-row">
+            <select id="set-avatarModel"></select>
+            <button class="btn-secondary btn-sm" id="btn-avatar-pick" title="从磁盘选择 VRM 文件">打开文件…</button>
+          </div>
+          <div class="field-hint">支持 .vrm 模型（VRM 0.x / 1.0）；也可把文件放入模型目录后点刷新</div>
+          <div class="model-row" style="margin-top:6px">
+            <button class="btn-secondary btn-sm" id="btn-avatar-refresh">刷新列表</button>
+            <button class="btn-secondary btn-sm" id="btn-avatar-folder">打开模型目录</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>播报引擎</label>
+          <select id="set-ttsEngine">
+            <option value="edge">Edge 神经语音（推荐，中英双语女声）</option>
+            <option value="system">系统语音（离线可用）</option>
+          </select>
+          <div class="field-hint" id="tts-status">正在检测 Edge 语音…</div>
+        </div>
+        <div class="field" id="field-ttsVoice">
+          <label>播报语音</label>
+          <select id="set-ttsVoice"></select>
+          <div class="field-hint">晓晓：中文自然；Ava / Emma：中英双语最自然</div>
+        </div>
+        <div class="field" id="field-ttsRate">
+          <label>语速：<span id="ttsrate-val">0%</span></label>
+          <input type="range" id="set-ttsRate" min="-50" max="50" step="5" />
+        </div>
+        <div class="field" id="field-systemVoice" style="display:none">
+          <label>系统语音</label>
+          <select id="set-avatarVoice"></select>
+          <div class="field-hint">留「自动」则使用系统默认中文语音</div>
+        </div>
+        <div class="field" id="field-systemRate" style="display:none">
+          <label>系统语音语速：<span id="rate-val">1.0</span></label>
+          <input type="range" id="set-avatarRate" min="0.6" max="1.8" step="0.1" />
+        </div>
+        <p class="modal-note">火星小厨房 <b>v5.0.0</b> · API Key 仅保存在本机（~/Library/Application Support/火星小厨房）。</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-cancel-settings">取消</button>
+        <button class="btn-primary" id="btn-save-settings">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 首次启动引导弹窗：老年模式 / 口味档位 / 忌口过敏（之后可在「设置」里随时修改） -->
+  <div id="onboard-overlay" class="overlay hidden">
+    <div class="modal onboard-modal">
+      <div class="modal-header">
+        <h2>欢迎使用火星小厨房</h2>
+      </div>
+      <div class="modal-body">
+        <p class="onboard-lead">先花 10 秒设置一下，之后随时能在「设置」里修改。</p>
+
+        <label class="switch-row" for="ob-elder">
+          <span class="switch-text">
+            <b>老年模式</b>
+            <small>放大字号 · 用「您」称呼 · 做饭用火时提醒关好煤气</small>
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="ob-elder" />
+            <span class="slider"></span>
+          </span>
+        </label>
+
+        <div class="divider"></div>
+        <div class="section-title">口味档位（仅美食、菜谱类问题生效）</div>
+        <div class="field-row mars-grid">
+          <div class="field">
+            <label>辣度</label>
+            <select id="ob-spicy" class="mars-select"></select>
+          </div>
+          <div class="field">
+            <label>甜度</label>
+            <select id="ob-sweet" class="mars-select"></select>
+          </div>
+          <div class="field">
+            <label>咸度</label>
+            <select id="ob-salty" class="mars-select"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>忌口 &amp; 过敏（全局生效，涉及食材必遵守）</label>
+          <input id="ob-avoid" class="mars-input" type="text" maxlength="500" spellcheck="false" placeholder="例如：虾过敏，不吃葱" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="ob-defaults">恢复默认</button>
+        <button class="btn-primary" id="ob-save">开始使用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 老年模式 + 辣/甜/咸最高两档：健康提醒（可返回修改或确认） -->
+  <div id="health-overlay" class="overlay health-overlay hidden">
+    <div class="modal health-modal">
+      <div class="modal-header">
+        <h2>健康提醒</h2>
+      </div>
+      <div class="modal-body">
+        <p class="health-lead">您开启了老年模式，同时选了偏高口味的档位。长辈的肠胃、血糖、血压都更敏感，建议先看一下：</p>
+        <div id="health-list" class="health-list"></div>
+        <p class="health-foot">可以「返回修改」换成更清淡的档位，也可以「确认并继续」保留现在的口味。</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="health-back">返回修改</button>
+        <button class="btn-primary" id="health-ok">确认并继续</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="lightbox" class="lightbox"><img alt=""></div>
+
+  <script src="js/markdown.js"></script>
+  <script src="js/files.js"></script>
+  <script src="js/mars.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/avatar.bundle.js"></script>
+  <script src="js/speech.js"></script>
+  <script src="js/voice-input.js"></script>
+  <script src="js/audio-recorder.js"></script>
+  <script src="js/cloud-voice.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
