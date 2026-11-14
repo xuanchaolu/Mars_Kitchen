@@ -506,6 +506,20 @@ table.md-table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
   backdrop-filter: blur(2px);
 }
 .modal {
+  /* 弹窗固定使用深色控件，避免系统主题与原生输入框的文字颜色混用。 */
+  color-scheme: dark;
+  --bg-card: #111113;
+  --bg-input: #202024;
+  --bg-hover: #303036;
+  --bg-code: #25252b;
+  --bg-reason: #1c1c20;
+  --border: #3c3c44;
+  --border-strong: #61616c;
+  --text: #ffffff;
+  --text-secondary: #f0f0f3;
+  --text-tertiary: #d0d0d8;
+  --accent: #ff8c78;
+  color: var(--text);
   width: 520px;
   max-width: 92vw;
   max-height: 86vh;
@@ -526,7 +540,7 @@ table.md-table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
 .modal-body { padding: 6px 20px 14px; overflow-y: auto; }
 .field { margin-bottom: 13px; }
 .field label { display: block; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 5px; }
-.field input[type="text"], .field input[type="password"], .field textarea {
+.field input[type="text"], .field input[type="password"], .field input[type="url"], .field textarea {
   width: 100%;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
@@ -539,6 +553,10 @@ table.md-table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
   user-select: text;
 }
 .field input:focus, .field textarea:focus { border-color: var(--accent); }
+.modal input::placeholder, .modal textarea::placeholder { color: #bfc0ca; opacity: 1; }
+.modal select, .modal option { color: var(--text); background: var(--bg-input); }
+.modal a { color: #ffc1b4; }
+.modal a:hover { color: #ffffff; }
 .field textarea { resize: vertical; min-height: 60px; }
 .key-row { display: flex; gap: 6px; }
 .key-row input { flex: 1; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
@@ -674,8 +692,10 @@ table.md-table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
   bottom: 70px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--toast-bg);
-  color: var(--text);
+  background: #111113;
+  color: #ffffff;
+  border: 1px solid #45454c;
+  color-scheme: dark;
   font-size: 13px;
   padding: 9px 18px;
   border-radius: 9px;
@@ -1260,3 +1280,10 @@ body.elder-mode .section-title { font-size: 15px; }
 .health-foot { font-size: 12px; color: var(--text-tertiary); margin-top: 12px; line-height: 1.6; }
 body.elder-mode .health-lead, body.elder-mode .health-item span, body.elder-mode .health-foot { font-size: 15px; }
 body.elder-mode .health-item b { font-size: 16px; }
+/* 中文语音输入：状态文字不挤占输入框，录音时保留明显的停止入口。 */
+.voice-bar { display: flex; align-items: center; gap: 10px; margin-top: 9px; min-height: 28px; }
+.voice-bar #voice-status { min-width: 0; flex: 1; font-size: 12px; color: #686875; overflow-wrap: anywhere; }
+.voice-bar .btn-secondary { flex-shrink: 0; }
+.voice-mic { flex-shrink: 0; align-self: flex-end; margin-bottom: 4px; }
+.voice-mic.recording { background: #ffe3e7; color: #b52c45; box-shadow: 0 0 0 2px #f6b6c2; }
+.voice-bar .active { color: #a32842; border-color: #d67b8c; background: #fff0f3; }

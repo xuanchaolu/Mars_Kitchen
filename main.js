@@ -1,18 +1,18 @@
-const { app, BrowserWindow, shell, ipcMain, Menu, dialog } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, Menu, dialog, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { spawn } = require('child_process');
 
 app.setName('火星小厨房');
-// 环境变量：新名（MARS_*）优先，兼容旧名（PERPER_*），保证既有脚本/自检继续可用
+// 环境变量：MARS_* 优先，PERPER_* 亦可使用
 const env = (name) => {
   const v = process.env['MARS_' + name];
   return v !== undefined && v !== '' ? v : process.env['PERPER_' + name];
 };
 // 便携模式/测试：可用环境变量重定向数据根目录（appData）与用户数据目录
 // 注意：数据目录只由本应用名决定（~/Library/Application Support/火星小厨房），
-// 与 PerPer AI / 牛来 完全隔离 —— 不读取、不迁移、不共享任何历史数据。
+// 数据独立存储 —— 不读取、不共享其他应用的数据。
 if (env('APPDATA')) {
   try {
     fs.mkdirSync(env('APPDATA'), { recursive: true });
@@ -25,6 +25,9 @@ if (env('USERDATA')) app.setPath('userData', env('USERDATA'));
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let mainWindow = null;
+const { DEFAULT_STT, registerSpeech } = require('./lib/speech-service');
+const speechService = registerSpeech({ app, ipcMain, getWindow: () => mainWindow,
+  getSettings: () => ({ ...DEFAULT_STT, ...PLATFORM_STT_DEFAULT, ...readJSON('settings.json', {}) }), systemPreferences });
 
 // ---------- 数据持久化 ----------
 const dataDir = () => app.getPath('userData');
@@ -43,7 +46,10 @@ function writeJSON(name, value) {
   } catch (e) { /* ignore */ }
 }
 
+const PLATFORM_STT_DEFAULT = process.platform === 'darwin' ? { sttEndpoint: 'macos' } : {};
 const DEFAULT_SETTINGS = {
+  ...DEFAULT_STT,
+  ...PLATFORM_STT_DEFAULT,
   apiKey: '',                              // 默认留空，首次启动由用户自行填写（打包不携带个人 Key）
   baseURL: 'https://api.deepseek.com/v1',
   model: 'deepseek-flash',
@@ -92,7 +98,7 @@ function sanitizeMarsSettings(s) {
   return s;
 }
 
-// 请求头必须为 ASCII（Chromium 限制非 ISO-8859-1 头），历史设置里的中文标题在此归一化
+// 请求头必须为 ASCII（Chromium 限制非 ISO-8859-1 头），设置里的中文标题在此归一化
 function sanitizeSettings(s) {
   const ascii = (v) => String(v || '').replace(/[^\x20-\x7E]/g, '').trim();
   if (typeof s.title === 'string') s.title = ascii(s.title) || 'Mars Kitchen macOS';
@@ -100,7 +106,7 @@ function sanitizeSettings(s) {
   return sanitizeMarsSettings(s);
 }
 
-// 一次性迁移：把旧的 OpenRouter 配置切到 DeepSeek 官方接口
+// 配置归一化：接口统一为 DeepSeek 官方
 // （用 configVersion 标记，只执行一次；之后用户在设置面板的修改都会被尊重）
 const CONFIG_VERSION = 2;
 function migrateToDeepseek(s) {
@@ -318,11 +324,10 @@ function listSkills() {
 ipcMain.handle('skills:list', () => listSkills());
 
 // ==================== 内置技能（随包分发，首次启动自动安装） ====================
-// 火星小厨房 不预置任何技能：PerPer 时代的 hcy 粉丝知识库与本产品无关，已移除。
-// 技能能力本身完整保留，用户可在「设置 → 技能」里自行安装。
+// 随包不预置任何技能，用户可在「设置 → 技能」里自行安装。
 const BUNDLED_SKILLS = [];
 
-// 历史遗留清理：早期版本随包播种过 skill_hcy，升级后从设置与磁盘里移除
+// 标记移除的技能条目：启动时从设置与磁盘里清理
 const REMOVED_SKILLS = ['skill_hcy'];
 function cleanupRemovedSkills(settings) {
   try {
@@ -915,7 +920,7 @@ function bundledSitePackages() {
   // 优先：打包的依赖库目录
   const direct = [process.resourcesPath && path.join(process.resourcesPath, 'python-libs'), path.join(__dirname, 'python-libs')].filter(Boolean);
   for (const d of direct) if (exists(path.join(d, 'edge_tts'))) return d;
-  // 兼容：旧版打包的 .venv
+  // 兜底：.venv 目录
   const roots = [process.resourcesPath && path.join(process.resourcesPath, '.venv'), path.join(__dirname, '.venv')].filter(Boolean);
   for (const root of roots) {
     const libDir = path.join(root, 'lib');
@@ -1149,6 +1154,16 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  const localPage = require('url').pathToFileURL(path.join(__dirname, 'renderer', 'index.html')).href;
+  const trustedMedia = (contents) => contents === mainWindow?.webContents && contents.getURL() === localPage;
+  mainWindow.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) =>
+    permission === 'media' && trustedMedia(contents) && details.mediaType === 'audio');
+  mainWindow.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) =>
+    callback(permission === 'media' && trustedMedia(contents) && details.mediaTypes?.length > 0 &&
+      details.mediaTypes.every((type) => type === 'audio') && details.isMainFrame !== false));
+  mainWindow.on('closed', () => speechService.cancel());
+  mainWindow.webContents.on('render-process-gone', () => speechService.cancel());
+  mainWindow.webContents.on('did-start-loading', () => speechService.cancel());
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
   // 外链用系统浏览器打开

@@ -7,6 +7,7 @@ build/*.dmg
 .npm-cache/
 .pip-cache/
 .build-cache/
+native/macos-speech
 
 # ---------- 虚拟环境与打包用 Python 依赖（可由 build.sh 重新生成）----------
 .venv/

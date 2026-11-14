@@ -62,11 +62,18 @@
             <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
           </button>
           <textarea id="input" rows="1" placeholder="输入消息…"></textarea>
+          <button id="btn-mic" class="icon-btn voice-mic" title="中文语音提问" aria-label="开始中文语音识别" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="8" y="2" width="8" height="13" rx="4"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>
+          </button>
           <button id="btn-send" class="btn-send" title="发送 (Enter)">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3.4 20.4 20.85 12 3.4 3.6l.01 6.53L15.6 12 3.41 13.87 3.4 20.4z"/></svg>
           </button>
           <input type="file" id="file-input" multiple hidden
                  accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,.txt,.md,.markdown,.json,.csv,.tsv,.log,.xml,.yml,.yaml,.js,.mjs,.jsx,.ts,.tsx,.py,.rb,.go,.rs,.java,.kt,.swift,.c,.h,.cpp,.cs,.php,.html,.css,.vue,.sh,.sql,.pdf,.svg,.toml,.ini,.conf" />
+        </div>
+        <div class="voice-bar">
+          <button id="btn-voice-chat" class="btn-secondary btn-sm" aria-pressed="false">连续语音对话</button>
+          <span id="voice-status" role="status" aria-live="polite">点击麦克风录音并发送到语音服务 · Esc 取消</span>
         </div>
         <div class="input-hint">Enter 发送 · Shift+Enter 换行 · 可拖入 / 粘贴 图片或文件</div>
       </div>
@@ -218,6 +225,33 @@
         <div id="mars-profile-status" class="field-hint" style="margin-top:6px"></div>
 
         <div class="divider"></div>
+        <div class="section-title">中文语音识别</div>
+        <div class="field">
+          <label>识别引擎</label>
+          <select id="set-sttEngine">
+            <option value="macos">Mac 系统识别（本机完成，无需 Key）</option>
+            <option value="cloud">云端接口（需自己的语音 API Key）</option>
+          </select>
+          <div class="field-hint" id="stt-engine-hint">使用 macOS 自带听写能力，离线识别、不上传录音。需在系统设置 → 键盘中开启听写；首次使用会请求语音识别权限。</div>
+        </div>
+        <div id="stt-cloud-fields">
+          <div class="field">
+            <label>语音 API Key</label>
+            <input type="password" id="set-sttApiKey" placeholder="填写你自己的语音服务 Key" autocomplete="off" spellcheck="false" />
+            <div class="field-hint">默认 SenseVoiceSmall 在硅基流动官方价格页目前标为免费，限流及使用资格以个人账号为准；此 Key 与上方对话 API Key 独立。</div>
+            <div class="field-hint"><a href="https://cloud.siliconflow.cn/" target="_blank" rel="noreferrer">注册并创建 API Key</a> · <a href="https://www.siliconflow.cn/pricing" target="_blank" rel="noreferrer">查看官方价格</a></div>
+          </div>
+          <div class="field">
+            <label>语音识别接口地址</label>
+            <input type="url" id="set-sttEndpoint" placeholder="https://api.siliconflow.cn/v1/audio/transcriptions" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label>语音识别模型</label>
+            <input type="text" id="set-sttModel" placeholder="FunAudioLLM/SenseVoiceSmall" spellcheck="false" />
+            <div class="field-hint">点击麦克风后，本句录音会发送到你配置的语音服务识别。应用不保存原始录音；识别文字按普通聊天记录保存。</div>
+          </div>
+        </div>
+        <div class="divider"></div>
         <div class="section-title">虚拟形象与语音</div>
         <div class="field-row">
           <label class="check-label">
@@ -284,7 +318,7 @@
           <label>系统语音语速：<span id="rate-val">1.0</span></label>
           <input type="range" id="set-avatarRate" min="0.6" max="1.8" step="0.1" />
         </div>
-        <p class="modal-note">火星小厨房 <b>v5.0.0</b> · API Key 仅保存在本机（~/Library/Application Support/火星小厨房）。</p>
+        <p class="modal-note">火星小厨房 <b>v5.1.0</b> · API Key 仅保存在本机（~/Library/Application Support/火星小厨房）。</p>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btn-cancel-settings">取消</button>
@@ -368,6 +402,9 @@
   <script src="js/api.js"></script>
   <script src="js/avatar.bundle.js"></script>
   <script src="js/speech.js"></script>
+  <script src="js/voice-input.js"></script>
+  <script src="js/audio-recorder.js"></script>
+  <script src="js/cloud-voice.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

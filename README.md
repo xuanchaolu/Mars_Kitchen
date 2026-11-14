@@ -1,12 +1,12 @@
 # 火星小厨房 — macOS AI 对话客户端
 
-**火星小厨房** — 一个参考 DeepSeek / 豆包界面的 macOS 桌面聊天应用（红色渐变主题，图标与对话头像取自透明底源图 `火星小厨房AI.png`），通过 **OpenAI 兼容接口** 连接 **DeepSeek 官方 API**（默认模型 `deepseek-flash`，即 DeepSeek flash v4.1），支持流式输出、深度推理（`reasoning_content`）与图片视觉输入。
+**火星小厨房** — 一个参考 DeepSeek / 豆包界面的 macOS 桌面聊天应用（红色渐变主题，图标与对话头像为透明底素材），通过 **OpenAI 兼容接口** 连接 **DeepSeek 官方 API**（默认模型 `deepseek-flash`，即 DeepSeek flash v4.1），支持流式输出、深度推理（`reasoning_content`）与图片视觉输入。
 
 ![界面](https://img.shields.io/badge/platform-macOS%20arm64-blue) ![Tech](https://img.shields.io/badge/tech-Electron%20%2B%20SwiftUI--style-8b5cf6)
 
 ## 🍽 火星小厨房 人设架构（Skill.md + A.md / shtu + 档位映射）
 
-火星小厨房 在 PerPer 全部既有能力之上，新增了「双人设 + 口味档位 + 忌口过敏」的 Agent 架构。
+火星小厨房 采用「双人设 + 口味档位 + 忌口过敏」的 Agent 架构。
 
 **完整 System Prompt 组装公式**（每次请求实时拼接，见 `renderer/js/mars.js`）：
 
@@ -61,27 +61,28 @@ System Prompt = Skill.md 全文                       ← 全局总能力、全�
 **老年模式放大字号**：给 `<body>` 加 `elder-mode` 类，`style.css` 里对回答正文（14px → 19px）、
 标题、表格、输入框、侧边栏、弹窗等统一放大（见 `body.elder-mode` 规则），无需重启、切换即生效。
 
-**输出只有正文**：Skill.md 明确要求「只输出回答正文」，**不再输出** `【主体回答】` / `【提示信息】` 分段、
+**输出只有正文**：Skill.md 明确要求「只输出回答正文」，不输出 `【主体回答】` / `【提示信息】` 分段、
 「当前生效参数：…」参数快照、「联网搜索调用次数：N次」计数。
-模型若仍按旧格式输出，`Mars.parseOutput()` 会把标记与提示信息整段剥掉，前端只渲染正文。
-对比型回答的 markdown 表格直接在气泡内渲染；联网搜索次数沿用 PerPer 的搜索框展示（「🔍 联网搜索 · N 次查询」）。
+若模型输出带分段标记，`Mars.parseOutput()` 会把标记与提示信息整段剥掉，前端只渲染正文。
+对比型回答的 markdown 表格直接在气泡内渲染；联网搜索次数在气泡内搜索框展示（「🔍 联网搜索 · N 次查询」）。
 
 **人设文件可编辑**：首次启动会把随包的 `mars_profile/` 播种到
 `~/Library/Application Support/火星小厨房/mars_profile/`，直接改这几份 `.md` 即可改变 Agent 行为，
 设置面板里提供「打开人设目录 / 重新加载 / 恢复出厂人设」。
 
-> 组装优先级（保留 PerPer 既有能力）：Mars 基础 Prompt（Skill + 人设 + 档位映射 + 参数快照）
+> 组装优先级：Mars 基础 Prompt（Skill + 人设 + 档位映射 + 参数快照）
 > 永远在最前面；其后追加「启用的技能提示词」，没有技能提示词时追加「全局系统提示词」——
-> 即技能提示词仍然优先于全局系统提示词。技能能力完整保留，但**不再随包内置任何技能**。
+> 即技能提示词优先于全局系统提示词。随包不内置技能，可在设置里自行安装。
 
 ## ✨ 功能
 
-- 🎨 **红色渐变主题**：强调色/发送按钮/用户气泡/品牌文字均为红色渐变；图标与对话头像为透明底 PNG（由 `火星小厨房AI.png` 生成）参考 DeepSeek 风格的聊天界面：侧边栏会话列表、欢迎页、消息气泡、Markdown 渲染、代码块一键复制
+- 🎨 **红色渐变主题**：强调色/发送按钮/用户气泡/品牌文字均为红色渐变；图标与对话头像为透明底 PNG，参考 DeepSeek 风格的聊天界面：侧边栏会话列表、欢迎页、消息气泡、Markdown 渲染、代码块一键复制
 - ⚡ **流式输出**（SSE），逐字显示；可随时「停止生成」
 - 🧠 **深度推理**：开启 `reasoning` 后显示「深度思考过程」——**思考中自动展开并实时流式显示**，**思考结束（开始输出答案）时自动折叠**，标签显示用时，点一下可再展开；并支持 `reasoning_details` 原样回传（模型可继续推理）
 - 🧍 **3D 虚拟形象**：支持**多模型切换**（VRM 0.x / 1.0），自然站姿（手臂下垂 **自动校准**）、自动眨眼、呼吸起伏、视线跟随鼠标、说话时小幅手势；可在设置中一键关闭
 - 🗣️ **语音播报**：AI 回答自动播报，口型按 Edge 词边界时间轴逐音节开合（每音节「张口→闭口」），播报结束自动闭嘴
 - 🎙️ **Edge 神经语音**（默认）：微软神经网络语音，中英双语女声（晓晓 / 晓伊 / Ava / Emma 可选），自带依赖库、无需 API Key；不可用时自动回退系统语音
+- 🎤 **中文语音输入**：点麦克风说话，停顿自动断句发给 AI；macOS 默认用**系统离线识别**（无需任何账户和 Key），也可选云端接口（自备语音 API Key）；支持「连续语音对话」与「再说一遍 / 结束对话」等口令，详见 [docs/CHINESE_VOICE.md](docs/CHINESE_VOICE.md)
 - 🧩 **技能（Skills）**：设置里可**安装技能**（文件夹 / `SKILL.md` / `.md` / `.zip`），每个技能有**独立开关**决定是否使用；技能还可选配一段**系统提示词**
   - **优先级**：启用技能若配了提示词 → **覆盖**全局系统提示词；未配 → 沿用全局（多个技能都配了则按顺序拼接）
   - 启用技能的说明（SKILL.md 正文）会作为「可用技能」注入到 system 消息中
@@ -98,11 +99,11 @@ System Prompt = Skill.md 全文                       ← 全局总能力、全�
   - 右键菜单：打开 / 复制 / 粘贴分叉 / **修改图标**（17 款可选）/ 重命名 / 删除
   - 每个对话在首次出现时**随机绑定一款文件夹图标**，之后固定不变
 - 🔄 多轮对话、重新生成、复制消息
-- 💾 会话历史自动保存在本机（`~/Library/Application Support/火星小厨房/conversations.json`）——**与 PerPer AI / 牛来 完全隔离，不读取也不迁移它们的任何数据**
+- 💾 会话历史自动保存在本机（`~/Library/Application Support/火星小厨房/conversations.json`），数据独立存储，不读写其他应用的数据
 - ⚙️ 设置面板：API Key、接口地址、模型、推理开关、Temperature、系统提示词、人群模式与口味、人设档案管理
 - 🌙 跟随系统深色/浅色模式
 
-### 🆕 火星小厨房 新增能力
+### 🍽 人设与口味能力
 
 - 🍽 **双人设系统**：普通版（`A.md`）/ 老年模式（`shtu`）二选一，与 `Skill.md`、`档位映射.md` 合并成完整 System Prompt
 - 👴 **老年模式开关**：一键切换；**整体放大字号** + 长辈称呼（「您」）+ 通俗短句 + **做饭/燃气场景强制煤气安全提醒**
@@ -117,13 +118,15 @@ System Prompt = Skill.md 全文                       ← 全局总能力、全�
 
 ### 方式一：直接运行打包好的应用
 
+从 GitHub Releases 下载 `火星小厨房-macOS-arm64.zip`，解压后双击打开；或对本地构建产物：
+
 ```bash
-open dist/火星小厨房.app
+open dist/火星小厨房-darwin-arm64/火星小厨房.app
 ```
 
 > 若首次打开提示「无法验证开发者」，在「系统设置 → 隐私与安全性」中点击「仍要打开」，或执行：
 > ```bash
-> xattr -dr com.apple.quarantine dist/火星小厨房.app
+> xattr -dr com.apple.quarantine 火星小厨房.app
 > ```
 
 ### 方式二：从源码构建
@@ -171,14 +174,18 @@ curl https://api.deepseek.com/v1/chat/completions \
 
 ```
 Mars_Kitchen/
-├── main.js                 # Electron 主进程：窗口、菜单、设置/会话持久化 IPC、人设档案播种
+├── main.js                 # Electron 主进程：窗口、菜单、设置/会话持久化 IPC、人设档案播种、语音识别调度
 ├── preload.js              # 安全桥接 (contextBridge)
-├── 火星小厨房AI.png        # ★ 应用 logo 源图（透明底；gen-icon.py 优先使用它）
 ├── mars_profile/           # ★ System Prompt 素材（随包分发，首次启动播种到用户数据目录）
 │   ├── Skill.md            #   全局技能：工具 / 流程 / 安全规则 / 输出格式 / 边界规则
 │   ├── A.md                #   普通版人设
 │   ├── shtu.md             #   老年模式人设（长辈称呼 + 煤气安全提醒）
 │   └── 档位映射.md          #   辣/甜/咸档位 + 忌口过敏映射规则
+├── lib/
+│   └── speech-service.js   # 语音识别引擎分发：macOS 系统识别 / 云端 multipart，超时与取消
+├── native/
+│   ├── macos-speech.m      # macOS 系统识别组件源码（SFSpeechRecognizer，优先离线）
+│   └── Info.plist          # 组件隐私声明（编译时嵌入二进制）
 ├── renderer/
 │   ├── index.html          # 界面骨架（含首次启动设置向导；主界面无参数栏/控制面板）
 │   ├── css/style.css       # DeepSeek 风格样式（含深色模式 + 老年模式放大字号）
@@ -186,39 +193,50 @@ Mars_Kitchen/
 │       ├── app.js          # 对话逻辑：发送/流式/停止/重新生成/设置/首次启动向导/老年模式
 │       ├── mars.js         # ★ System Prompt 组装 + 档位快照 + 输出解析 + 表格提取（纯函数，可单测）
 │       ├── api.js          # OpenAI 兼容 SSE 流式客户端
-│       └── markdown.js     # 轻量 Markdown 渲染器（已转义，防 XSS）
+│       ├── markdown.js     # 轻量 Markdown 渲染器（已转义，防 XSS）
+│       ├── audio-recorder.js # 跨平台麦克风录音 + 16kHz 单声道 WAV 编码
+│       ├── cloud-voice.js  # 录音到识别接口的适配层
+│       ├── voice-input.js  # 语音输入状态机：连续对话 / 口令 / 取消
+│       └── speech.js       # 语音播报与引擎回退控制
 ├── src/
 │   └── avatar-src.js         # 3D 形象模块源码（three.js + three-vrm），esbuild 打包成 avatar.bundle.js
 ├── renderer/assets/
-│   ├── logo.png              # 应用 logo / 界面头像（512，由根目录 火星小厨房AI.png 生成）
+│   ├── logo.png              # 应用 logo / 界面头像（512，透明底）
 │   ├── avatars/              # VRM 人物模型（默认火星姐 Martian.vrm）
 │   └── folder-icons/         # 文件夹视图图标（17 款 PNG + manifest.json）
-├── python-libs/              # Edge TTS 依赖库（随应用打包，用系统 python3 + PYTHONPATH 运行）
+├── python-libs/              # Edge TTS 依赖库（随应用打包，用系统 python3 + PYTHONPATH 运行；不入库）
 ├── .venv/                    # 开发用虚拟环境（生成 python-libs 的来源，不随应用打包）
 ├── tools/
 │   ├── gen-icon.py           # 生成应用图标：透明底源直接用 alpha；不透明源走抠底色（连通域+反混合）→ iconset → icns
-│   ├── package.js            # electron-packager 打包脚本（含 python-libs / mars_profile）
+│   ├── package.js            # electron-packager 打包脚本（含 python-libs / mars_profile / macos-speech）
 │   ├── mock-server.js        # 本地 Mock SSE 服务器（离线自测流式管线）
 │   ├── mars-test.js          # ★ 单元测试：System Prompt 组装 / 档位 / 输出解析 / 表格提取
 │   ├── mars-e2e.js           # ★ 端到端测试：真实 Electron + Mock DeepSeek，校验发出去的 System Prompt
 │   ├── mars-mock-server.js   # ★ E2E 用 Mock DeepSeek（先工具调用，再返回带表格的最终回答）
 │   ├── mars-probe.js         # ★ 在渲染进程里驱动真实界面并回传断言数据
+│   ├── voice-test.js         # ★ 语音测试入口（连续对话 / 口令 / 取消）
+│   ├── speech-service-test.js # 识别引擎测试（含本机模拟 HTTP 转写往返）
+│   ├── speech-playback-test.js # 播报衔接测试
+│   ├── audio-recorder-test.js # 录音编码测试
+│   ├── cloud-voice-test.js   # 录音适配层测试
 │   ├── make-python-libs.sh   # 生成 python-libs（edge-tts 依赖库）
 │   └── smoke-test.js          # 接口冒烟测试（MARS_KEY / PERPER_KEY）
 ├── build.sh                  # 一键构建：图标 → 打包 → 签名
 ├── docs/
-│   └── MARS_KITCHEN.md       # ★ 需求文档逐条实现对照表（验收用）
-└── dist/火星小厨房.app             # 构建产物
+│   ├── MARS_KITCHEN.md       # ★ 功能与实现对照表（验收用）
+│   └── CHINESE_VOICE.md      # ★ 中文语音输入与连续对话说明
+└── dist/火星小厨房-darwin-arm64/火星小厨房.app   # 构建产物
 ```
 
 ## ✅ 测试
 
 ```bash
-npm test          # 单元测试（40 项）：prompt 组装顺序、人设二选一、档位夹取、边界规则、档位应用原则、
-                  #   高档位健康提醒、输出剥提示信息、改名与数据隔离静态校验
-npm run test:e2e  # 端到端（45 项）：真实启动 Electron + Mock DeepSeek，
-                  # 校验首次启动弹窗、老年模式字号、主界面无参数栏/控制面板、
-                  # 火星姐默认在线、发出去的 System Prompt / tools、提示信息与表格渲染
+npm test           # 单元测试（40 项）：prompt 组装顺序、人设二选一、档位夹取、边界规则、档位应用原则、
+                   #   高档位健康提醒、输出剥提示信息、改名与数据隔离静态校验
+npm run test:voice # 语音测试（37 项）：录音编码、识别引擎（系统/云端）、连续对话、播报衔接、取消
+npm run test:e2e   # 端到端（45 项）：真实启动 Electron + Mock DeepSeek，
+                   # 校验首次启动弹窗、老年模式字号、主界面无参数栏/控制面板、
+                   # 火星姐默认在线、发出去的 System Prompt / tools、提示信息剥离与表格渲染
 ```
 
 E2E 会自动选空闲端口，并用 `MARS_APPDATA` 把数据根重定向到临时目录（不碰用户真实数据），断言：
@@ -230,11 +248,11 @@ E2E 会自动选空闲端口，并用 `MARS_APPDATA` 把数据根重定向到临
 - 老年模式请求的 System Prompt = `Skill.md` → `shtu` → `档位映射` → 参数快照，且**不含** `A.md`
 - 参数快照逐项等于弹窗/设置里选择的值（模式/辣度/甜度/咸度/忌口过敏）
 - 联网搜索工具仍然下发给模型，且第二轮请求携带真实工具结果（计数 = 1）
-- 回答里渲染出 `【提示信息】` 标准块与 markdown 表格
+- 回答里渲染出 markdown 表格，且不含 `【提示信息】` 分段
 - **健康提醒**：老年模式 + 辣3/甜3 → 弹提醒并列出两项；「返回修改」不落库、「确认并继续」才保存；普通模式不弹
-- **回答不含提示信息**：mock 故意返回带 `【提示信息】` 的旧格式，界面必须把它剥干净
+- **回答不含提示信息**：mock 故意返回带 `【提示信息】` 的分段格式，界面必须把它剥干净
 - 在「设置」里关闭老年模式后字号恢复
-- **数据隔离**：应用数据只落在 `appData/火星小厨房/`；伪造的 PerPer / 牛来 历史会话、API Key、模型设置都不会被读取，旧文件也不会被改动
+- **数据隔离**：应用数据只落在 `appData/火星小厨房/`；伪造的其他应用历史会话、API Key、模型设置都不会被读取，原文件也不会被改动
 
 ## 🧩 技能（Skills）说明
 
@@ -309,7 +327,7 @@ description: 按团队规范审查代码，指出安全与性能问题
 ## 🔒 安全提示
 
 - API Key 仅保存在本机，不会上传到任何服务器
-- 你在对话中贴出过 API Key，建议在 OpenRouter 后台**轮换/重置**一次该 Key
+- 若怀疑 Key 泄露（如在公开场合贴出过），请在对应服务商后台轮换/重置该 Key
 - Markdown 渲染做了 HTML 转义，模型输出不会执行脚本
 
 ## 快捷键
@@ -321,7 +339,7 @@ description: 按团队规范审查代码，指出安全与性能问题
 | `⌘,` | 打开设置 |
 | `⌘.` | 停止生成 |
 
-## 📦 打包与默认状态（v5.0.0）
+## 📦 打包与默认状态（v5.1.0）
 
 打包产物自带以下默认配置（除 API Key 外均为开箱即用）：
 
@@ -330,9 +348,10 @@ description: 按团队规范审查代码，指出安全与性能问题
 | API Key | **留空**（首次启动自行填写，打包不携带个人 Key） |
 | 对话模型 | `deepseek-flash`（`https://api.deepseek.com/v1`） |
 | **人物形象** | **火星姐（`Martian.vrm`）**，形象面板开启、自动播报开启（默认即在线） |
-| **技能** | **不预置任何技能**（PerPer 时代的 hcy 粉丝知识库与本产品无关，已移除）；技能能力保留，可在设置里自行安装 |
+| **技能** | **不预置任何技能**；技能系统可用，可在设置里自行安装 |
 | **人群模式** | 普通模式（`A.md`）；首次打开 App 弹窗设置，可随时在设置里改成老年模式（`shtu`） |
 | **口味档位** | 辣 0 / 甜 0 / 咸 0；忌口&过敏为空 |
+| **语音输入** | macOS 系统识别（本机离线、无需 Key）；设置里可切换云端接口（自备语音 API Key） |
 | 形象背景 | 火星姐专属，每次启动随机一张（`renderer/assets/bg/`） |
 | 联网搜索 | 开启（多引擎），最多 3 轮 |
 | 视图模式 | 侧边列表（⌘2 可切文件夹视图） |
@@ -340,7 +359,7 @@ description: 按团队规范审查代码，指出安全与性能问题
 
 **人设档案的分发方式**：`mars_profile/` 通过 electron-packager 的 `extraResource` 放到 `火星小厨房.app/Contents/Resources/mars_profile/`（同时从 asar 中排除，避免重复）；应用首次启动时把它复制到 `~/Library/Application Support/火星小厨房/mars_profile/`，之后读取**用户目录优先、随包目录兜底**。用 `seededMarsProfile` 记录已播种；设置面板里可「打开人设目录 / 重新加载 / 恢复出厂人设」。
 
-**技能的分发方式**：不再随包内置技能（`BUNDLED_SKILLS = []`）。若从早期版本升级，启动时会自动从设置与磁盘里清掉 `skill_hcy`（`cleanupRemovedSkills`）。
+**技能的分发方式**：随包不内置技能（`BUNDLED_SKILLS = []`）；启动时清理设置与磁盘中标记移除的技能条目（`cleanupRemovedSkills`）。
 
 ## ⚖️ 第三方资源与授权（协作/分发前必读）
 

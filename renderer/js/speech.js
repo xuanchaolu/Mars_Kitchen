@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const listeners = { end: [], chunk: [] };
+  const listeners = { end: [], chunk: [], error: [] };
   let conf = {
     engine: 'edge',
     voice: 'zh-CN-XiaoxiaoNeural',   // Edge 语音
@@ -166,15 +166,20 @@
       } catch (e) {
         // Edge 合成失败 → 该段回退系统语音
         console.log('[Speech] edge synth failed: ' + e.message);
-        if (i === 0) return speakSystem(chunks.join(''), myGen);
-        continue;
+        speakSystem(chunks.slice(i).join(''), myGen);
+        return 'system';
       }
       if (myGen !== gen) return true;
+      if (!result) { speakSystem(chunks.slice(i).join(''), myGen); return 'system'; }
       // 提前预取下一段，减少段落间的停顿
       if (i + 1 < chunks.length) pending = synth(chunks[i + 1]).catch(() => null);
 
       const reason = await playAudio(result.audio, myGen, chunks[i], result.boundaries);
       if (reason === 'stale' || myGen !== gen) return true;
+      if (['error', 'blocked', 'timeout'].includes(reason)) {
+        emit('error', { message: '语音音频无法播放，请检查声音输出设备。' });
+        return false;
+      }
     }
     return true;
   }
@@ -184,7 +189,7 @@
   let sysIdx = 0;
   let sysOnChunk = null;
 
-  function speakSystemNext(myGen) {
+  function speakSystemNext(myGen, retry = 0) {
     if (myGen !== gen) return;
     if (sysIdx >= sysQueue.length) { speaking = false; emit('end', {}); return; }
     const text = sysQueue[sysIdx];
@@ -200,9 +205,21 @@
     u.rate = conf.systemRate;
     u.volume = conf.volumeLevel;
     let started = false;
+    let finished = false;
+    const watchdog = setTimeout(() => {
+      if (finished || myGen !== gen) return;
+      finished = true;
+      speaking = false;
+      try { window.speechSynthesis.cancel(); } catch (_) {}
+      emit('error', { message: '系统语音播放超时，请检查声音输出设备。' });
+      emit('end', {});
+    }, 120000);
     u.onstart = () => { started = true; chunkStarted = true; if (sysOnChunk) sysOnChunk(text, undefined); emit('chunk', { text }); };
-    u.onend = () => { if (myGen !== gen) return; sysIdx++; speakSystemNext(myGen); };
+    u.onend = () => { if (finished) return; finished = true; clearTimeout(watchdog); if (myGen !== gen) return; sysIdx++; speakSystemNext(myGen); };
     u.onerror = (e) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(watchdog);
       if (myGen !== gen) return;
       const code = e && e.error ? e.error : 'unknown';
       console.log('[Speech] system error: ' + code);
@@ -213,17 +230,21 @@
     try {
       window.speechSynthesis.speak(u);
       setTimeout(() => {
-        if (started || myGen !== gen) return;
-        gen++;
-        const g2 = gen;
+        if (finished || started || myGen !== gen) return;
+        finished = true;
+        clearTimeout(watchdog);
         try { window.speechSynthesis.cancel(); } catch (_) {}
-        setTimeout(() => speakSystemNext(g2), 260);
+        if (retry >= 1) {
+          speaking = false;
+          emit('error', { message: '系统语音无法播放，请检查中文语音和声音输出设备。' });
+          emit('end', {});
+        } else setTimeout(() => speakSystemNext(myGen, retry + 1), 260);
       }, 1300);
-    } catch (_) { sysIdx++; speakSystemNext(myGen); }
+    } catch (_) { finished = true; clearTimeout(watchdog); sysIdx++; speakSystemNext(myGen); }
   }
 
   function speakSystem(text, myGen) {
-    if (!window.speechSynthesis) return false;
+    if (!window.speechSynthesis) { speaking = false; emit('error', { message: '系统语音不可用。' }); emit('end', {}); return false; }
     sysQueue = chunk(text, 110);
     sysIdx = 0;
     sysOnChunk = onChunkStart;
@@ -273,11 +294,13 @@
 
       if (conf.engine === 'edge') {
         const ok = await probeEdge();
+        if (myGen !== gen) return false;
         if (!ok) {
           if (o.onFallback) o.onFallback(edgeInfo);
           return speakSystem(usable, myGen);
         }
         const started = await speakEdge(usable, myGen);
+        if (started === 'system') return true;
         if (myGen === gen && started) { /* 播报结束由 playAudio 循环推进 */ }
         if (myGen === gen) { speaking = false; emit('end', {}); }
         return true;

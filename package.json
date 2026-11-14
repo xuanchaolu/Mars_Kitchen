@@ -1,18 +1,20 @@
 {
   "name": "mars-kitchen",
   "productName": "火星小厨房",
-  "version": "5.0.0",
-  "description": "火星小厨房 AI 对话客户端 — Skill.md + A.md/shtu 双人设 + 档位映射的 DeepSeek Agent（联网搜索 + 3D 虚拟形象 + Edge 神经语音播报）",
+  "version": "5.1.0",
+  "description": "火星小厨房 AI 对话客户端 — Skill.md + A.md/shtu 双人设 + 档位映射的 DeepSeek Agent（联网搜索 + 3D 虚拟形象 + 中文语音输入 + Edge 神经语音播报）",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
+    "test:voice": "node --test tools/voice-test.js tools/speech-service-test.js tools/speech-playback-test.js tools/audio-recorder-test.js tools/cloud-voice-test.js",
     "icon": "python3 tools/gen-icon.py",
     "build": "bash build.sh",
+    "package": "node tools/package.js",
     "avatar": "esbuild src/avatar-src.js --bundle --format=iife --target=chrome120 --minify --outfile=renderer/js/avatar.bundle.js",
     "test": "node tools/mars-test.js",
     "test:e2e": "node tools/mars-e2e.js",
-    "test:all": "node tools/mars-test.js && node tools/mars-e2e.js"
+    "test:all": "npm test && npm run test:voice && npm run test:e2e"
   },
   "devDependencies": {
     "@pixiv/three-vrm": "^3.0.0",

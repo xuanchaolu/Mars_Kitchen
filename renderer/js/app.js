@@ -6,6 +6,7 @@
   'use strict';
 
   const MAX_ATTACHMENTS = 6;
+  let voiceInput = null;
 
   // ---------- DOM ----------
   const $ = (id) => document.getElementById(id);
@@ -558,6 +559,7 @@
   // ---------- 发送 / 停止 / 重新生成 ----------
   /** 从对话窗口发送（仅文本，支持多窗口并行） */
   function sendFromWindow(convId) {
+    if (voiceInput) voiceInput.cancel();
     const conv = state.conversations.find((c) => c.id === convId);
     const win = state.windows.get(convId);
     if (!conv || !win) return;
@@ -579,7 +581,8 @@
     startStream(conv);
   }
 
-  function send() {
+  function send(fromVoice) {
+    if (fromVoice !== true && voiceInput) voiceInput.cancel();
     const conv = currentConv();
     if (!conv || isStreaming(conv.id)) return;
     const text = els.input.value.trim();
@@ -852,6 +855,10 @@
         updateWindowSendState(conv.id);
         updateLastMessage(conv.id, true);
         updateComposeUI();
+        if (voiceInput && conv.id === state.currentId) {
+          const last = conv.messages[conv.messages.length - 1];
+          voiceInput.responseDone(ctrl.signal.aborted || (last && last.error));
+        }
       });
   }
 
@@ -878,7 +885,7 @@
         last.content = '（模型未返回内容，请重试）';
       }
       // 播报：仅当前对话 + 开启自动播报 + 非错误内容
-      if (convId === state.currentId && state.settings && state.settings.avatarAutoSpeak &&
+      if (convId === state.currentId && state.settings && (state.settings.avatarAutoSpeak || (voiceInput && voiceInput.ownsTurn())) &&
           last.content.trim() && !last.error) {
         speakText(last.content);
       } else {
@@ -897,6 +904,7 @@
   }
 
   function stop() {
+    if (voiceInput) voiceInput.cancel();
     const s = state.streams[state.currentId];
     if (s) s.ctrl.abort();
   }
@@ -934,6 +942,7 @@
 
   // ---------- 会话管理 ----------
   function newChat() {
+    if (voiceInput) voiceInput.cancel();
     saveCurrentDraft();
     const conv = { id: uid(), title: '新对话', createdAt: Date.now(), updatedAt: Date.now(), messages: [], icon: randomIconId() };
     state.conversations.unshift(conv);
@@ -948,6 +957,7 @@
 
   function selectConv(id) {
     if (id === state.currentId) return;
+    if (voiceInput) voiceInput.cancel();
     saveCurrentDraft();
     state.currentId = id;
     renderSidebar();
@@ -956,6 +966,7 @@
   }
 
   function deleteConv(id) {
+    if (voiceInput && id === state.currentId) voiceInput.cancel();
     if (state.streams[id]) state.streams[id].ctrl.abort(); // 中止该对话的生成
     closeConversationWindow(id);
     delete state.drafts[id];
@@ -1060,10 +1071,28 @@
   }
 
   // ---------- 设置 ----------
+  function toggleSttEngine() {
+    const macos = $('set-sttEngine').value === 'macos';
+    $('stt-cloud-fields').style.display = macos ? 'none' : '';
+    $('stt-engine-hint').textContent = macos
+      ? '使用 macOS 自带听写能力，离线识别、不上传录音。需在系统设置 → 键盘中开启听写；首次使用会请求语音识别权限。'
+      : '录音会发送到你配置的云端接口识别，需要该服务自己的 API Key（与对话 Key 独立）。';
+  }
+
   function openSettings() {
+    if (voiceInput) voiceInput.cancel();
     els.setApiKey.value = state.settings.apiKey || '';
     els.setBaseURL.value = state.settings.baseURL || '';
     els.setModel.value = state.settings.model || '';
+    const sttEngineSel = $('set-sttEngine');
+    const macOption = sttEngineSel.querySelector('option[value="macos"]');
+    if (!/Mac/.test(navigator.platform || navigator.userAgent) && macOption) macOption.remove();
+    const sttEndpoint = state.settings.sttEndpoint || (macOption ? 'macos' : 'https://api.siliconflow.cn/v1/audio/transcriptions');
+    sttEngineSel.value = sttEndpoint === 'macos' ? 'macos' : 'cloud';
+    toggleSttEngine();
+    $('set-sttApiKey').value = state.settings.sttApiKey || '';
+    $('set-sttEndpoint').value = sttEndpoint === 'macos' ? 'https://api.siliconflow.cn/v1/audio/transcriptions' : sttEndpoint;
+    $('set-sttModel').value = state.settings.sttModel || 'FunAudioLLM/SenseVoiceSmall';
     els.setReasoning.checked = !!state.settings.reasoningEnabled;
     els.setTemperature.value = state.settings.temperature != null ? state.settings.temperature : 0.7;
     els.tempVal.textContent = els.setTemperature.value;
@@ -1100,6 +1129,23 @@
     const model = els.setModel.value.trim();
     if (!baseURL) { toast('请填写接口地址'); return; }
     if (!model) { toast('请填写模型名称'); return; }
+    if ($('set-sttEngine').value === 'macos') {
+      state.settings.sttEndpoint = 'macos';
+      state.settings.sttApiKey = '';
+      state.settings.sttModel = '';
+    } else {
+      const sttEndpoint = $('set-sttEndpoint').value.trim();
+      const sttModel = $('set-sttModel').value.trim();
+      try {
+        const url = new URL(sttEndpoint);
+        if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))) throw new Error();
+        if (url.username || url.password) throw new Error();
+      } catch (_) { toast('请填写 HTTPS 语音接口地址；本机测试允许 localhost HTTP。'); return; }
+      if (!sttModel) { toast('请填写语音识别模型'); return; }
+      state.settings.sttApiKey = $('set-sttApiKey').value.trim();
+      state.settings.sttEndpoint = sttEndpoint;
+      state.settings.sttModel = sttModel;
+    }
     state.settings.apiKey = els.setApiKey.value.trim();
     state.settings.baseURL = baseURL;
     state.settings.model = model;
@@ -1695,6 +1741,7 @@
 
   /** 让形象播报一段文本 */
   function speakText(text, opts) {
+    if (voiceInput && voiceInput.state().requestId) voiceInput.cancel();
     const o = opts || {};
     const cleaned = window.Speech ? window.Speech.clean(text) : '';
     if (!cleaned) { toast('没有可播报的内容'); return false; }
@@ -1714,6 +1761,10 @@
         toast(why + '，已切换到系统语音', 4000);
       },
       onUnsupported: () => toast('当前环境不支持语音播报'),
+    }).catch((error) => {
+      stopSpeaking();
+      if (voiceInput) voiceInput.cancel('语音播报失败，请点击麦克风重试。');
+      toast('语音播报失败：' + error.message);
     });
     return true;
   }
@@ -1731,9 +1782,14 @@
 
   // 语音事件：播报结束 → 回到待机/思考状态
   if (window.Speech) {
+    window.Speech.on('error', (event) => {
+      if (voiceInput) voiceInput.cancel('语音播报失败，连续对话已暂停。');
+      toast(event.message || '语音播报失败，请检查声音设备。');
+    });
     window.Speech.on('end', () => {
       if (avatar.handle) avatar.handle.endSpeech();
       setAvatarStatus(isAnyThinking() ? 'thinking' : 'idle');
+      if (voiceInput) voiceInput.playbackEnded();
     });
     if (els.setAvatarRate) {
       els.setAvatarRate.addEventListener('input', () => {
@@ -1921,6 +1977,7 @@
   function viewMode() { return (state.settings && state.settings.viewMode) || 'list'; }
 
   function setViewMode(mode) {
+    if (voiceInput) voiceInput.cancel();
     state.settings.viewMode = mode === 'folder' ? 'folder' : 'list';
     window.niuai.setSettings(state.settings).catch(() => {});
     applyViewMode();
@@ -2294,6 +2351,56 @@
     if (e.key === 'Escape') { closeContextMenu(); closeIconPicker(); }
   }
 
+  // ---------- 中文语音输入 ----------
+  async function initVoiceInput() {
+    const mic = $('btn-mic'), chat = $('btn-voice-chat'), status = $('voice-status');
+    if (!mic || !chat || !window.VoiceInput || !window.CloudVoice) return;
+    const voiceBridge = window.CloudVoice.create(window.niuai);
+    const update = (v) => {
+      const recording = ['starting', 'listening', 'finishing'].includes(v.phase);
+      const working = recording || v.phase === 'transcribing';
+      mic.classList.toggle('recording', working);
+      mic.setAttribute('aria-pressed', String(working));
+      mic.setAttribute('aria-label', v.phase === 'transcribing' ? '取消语音识别' : recording ? '结束本句语音识别' : '开始中文语音识别');
+      mic.title = v.phase === 'transcribing' ? '取消语音识别（Esc）' : recording ? '结束本句（Esc 取消）' : '中文语音提问';
+      chat.classList.toggle('active', v.continuous);
+      chat.setAttribute('aria-pressed', String(v.continuous));
+      chat.textContent = v.continuous ? '结束语音对话' : '连续语音对话';
+      status.textContent = v.transcript && v.phase === 'listening' ? v.transcript :
+        (v.message || '点击麦克风录音并发送到语音服务 · Esc 取消');
+    };
+    voiceInput = window.VoiceInput.create({
+      bridge: voiceBridge,
+      context: () => ({ convId: state.currentId, busy: isStreaming(state.currentId),
+        hasKey: !!(state.settings && state.settings.apiKey),
+        hasSpeechKey: !!(state.settings && (state.settings.sttApiKey || state.settings.sttEndpoint === 'macos')),
+        speechHost: state.settings && state.settings.sttEndpoint === 'macos' ? '本机' :
+          (() => { try { return new URL(state.settings.sttEndpoint || 'https://api.siliconflow.cn').host; } catch (_) { return '设置中的语音服务'; } })(),
+        hasDraft: !!els.input.value.trim() || attachments.length > 0 }),
+      update,
+      error: (message) => toast(message, 6000),
+      stopSpeaking,
+      isSpeaking: () => !!(window.Speech && window.Speech.isSpeaking()),
+      submit: (text) => { els.input.value = text; send(true); },
+      repeat: () => {
+        const conv = currentConv();
+        const last = conv && [...conv.messages].reverse().find((m) => m.role === 'assistant' && m.content && !m.error);
+        return !!last && speakText(last.content);
+      },
+    });
+    mic.addEventListener('click', () => voiceInput.toggleMic());
+    chat.addEventListener('click', () => voiceInput.toggleContinuous());
+    window.addEventListener('beforeunload', () => { voiceInput.dispose(); voiceBridge.dispose(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) voiceInput.cancel(); });
+    try {
+      const info = await voiceBridge.sttInfo();
+      if (!info.available) {
+        mic.disabled = chat.disabled = true;
+        status.textContent = info.reason;
+      }
+    } catch (_) { mic.disabled = chat.disabled = true; status.textContent = '无法连接语音组件，请重启应用。'; }
+  }
+
   // ---------- 初始化 ----------
   async function init() {
     const [settings, conversations] = await Promise.all([
@@ -2308,6 +2415,7 @@
       state.currentId = state.conversations[0].id;
     }
     els.modelBadge.textContent = settings.model;
+    await initVoiceInput();
 
     // 会话与发送
     els.btnNew.addEventListener('click', newChat);
@@ -2315,7 +2423,7 @@
     els.btnSettings.addEventListener('click', openSettings);
     els.btnSend.addEventListener('click', () => (isStreaming(state.currentId) ? stop() : send()));
 
-    els.input.addEventListener('input', () => { autoGrow(); saveCurrentDraft(); updateSendButtonState(); });
+    els.input.addEventListener('input', () => { if (voiceInput) voiceInput.cancel(); autoGrow(); saveCurrentDraft(); updateSendButtonState(); });
     els.input.addEventListener('keydown', (e) => {
       const isEnter = e.key === 'Enter';
       const isCmdEnter = (e.metaKey || e.ctrlKey) && isEnter;
@@ -2354,6 +2462,7 @@
     // 首次启动引导弹窗必须点「开始使用」完成设置，因此不支持 Esc / 点空白关闭
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
+      if (voiceInput) voiceInput.cancel('已取消语音。');
       if (els.healthOverlay && !els.healthOverlay.classList.contains('hidden')) { closeHealthWarning(); return; }
       if (!els.settingsOverlay.classList.contains('hidden')) closeSettings();
       const lb = document.getElementById('lightbox'); if (lb) lb.classList.remove('show');
@@ -2424,6 +2533,8 @@
         state.settings.ttsEngine = prev;
       });
     }
+    const sttEngineSel = $('set-sttEngine');
+    if (sttEngineSel) sttEngineSel.addEventListener('change', toggleSttEngine);
 
     // 菜单事件
     window.niuai.onMenu((action) => {
@@ -2442,7 +2553,7 @@
       toast(state.settings.avatarEnabled ? '已显示虚拟形象' : '已隐藏虚拟形象');
     });
     els.btnSpeakToggle.addEventListener('click', () => {
-      if (window.Speech && window.Speech.isSpeaking()) { stopSpeaking(); return; }
+      if (window.Speech && window.Speech.isSpeaking()) { if (voiceInput) voiceInput.cancel(); stopSpeaking(); return; }
       state.settings.avatarAutoSpeak = !state.settings.avatarAutoSpeak;
       window.niuai.setSettings(state.settings);
       updateSpeakToggleUI();
@@ -2454,7 +2565,7 @@
       if (last) speakText(last.content);
       else toast('还没有可播报的回答');
     });
-    els.btnAvatarStop.addEventListener('click', stopSpeaking);
+    els.btnAvatarStop.addEventListener('click', () => { if (voiceInput) voiceInput.cancel(); stopSpeaking(); });
 
     applyAvatarVisibility();
     updateSpeakToggleUI();
@@ -2494,7 +2605,7 @@
     applyViewMode();
 
     // 火星小厨房：预加载人设档案（Skill.md / A.md / shtu / 档位映射）
-    // 主界面不再放参数栏与控制面板：首次打开弹窗设置，之后在「设置」里修改。
+    // 主界面无参数栏与控制面板：首次打开弹窗设置，之后在「设置」里修改。
     await loadMarsProfile();
     applyElderMode();
     bindMarsControls();
