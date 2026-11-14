@@ -180,7 +180,7 @@ A.md 或 shtu（二选一）
 
 ```bash
 cd Mars_Kitchen
-npm test           # 单元测试（40 项）：组装顺序 / 版本二选一 / 档位夹取 / 边界规则 / 输出解析 / 表格提取
+npm test           # 单元测试（47 项）：组装顺序 / 版本二选一 / 档位夹取 / 边界规则 / 输出解析 / 表格提取 / Markdown 表格渲染
 npm run test:voice # 语音测试（37 项）：录音编码 / 识别引擎 / 连续对话 / 播报衔接
 npm run test:e2e   # 端到端（45 项）：真实 Electron + Mock DeepSeek，断言发出去的 System Prompt 与界面渲染
 

@@ -22,7 +22,7 @@ packager({
   icon: platform === 'darwin' ? path.join(ROOT, 'build', 'AppIcon.icns') : undefined,
   appBundleId: 'com.marskitchen.app',
   appCategoryType: 'public.app-category.productivity',
-  appVersion: '5.1.0',
+  appVersion: '5.1.1',
   buildVersion: '1',
   extendInfo: {
     NSMicrophoneUsageDescription: '录制中文语音指令，与火星小厨房对话。',

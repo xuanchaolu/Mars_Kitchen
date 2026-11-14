@@ -116,6 +116,13 @@
       if (listType) { html.push('</' + listType + '>'); listType = null; }
     };
 
+    // 表格可以直接打断段落（标题后无空行也算表格），判定必须同时用于主循环和段落合并
+    const isTableStart = (idx) =>
+      idx + 1 < lines.length &&
+      lines[idx].includes('|') &&
+      /^\s*\|?[\s:|-]+\|?[\s:|-]*$/.test(lines[idx + 1]) &&
+      lines[idx + 1].includes('-');
+
     while (i < lines.length) {
       const line = lines[i];
 
@@ -135,7 +142,7 @@
       if (inCode) { codeBuf.push(line); i++; continue; }
 
       // 表格（连续包含 | 的行，且第二行是分隔符）
-      if (line.includes('|') && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?[\s:|-]*$/.test(lines[i + 1]) && lines[i + 1].includes('-')) {
+      if (isTableStart(i)) {
         closeList();
         tableBuf = [];
         while (i < lines.length && lines[i].includes('|')) { tableBuf.push(lines[i]); i++; }
@@ -181,7 +188,7 @@
       i++;
       while (i < lines.length) {
         const t = lines[i].trim();
-        if (t === '' || /^```/.test(t) || /^#{1,6}\s/.test(t) || /^[-*+]\s/.test(t) || /^\d+[.)]\s/.test(t) || /^\s*\|?[\s:|-]+\|?[\s:|-]*$/.test(lines[i]) && lines[i].includes('-') && i + 1 < lines.length && lines[i + 1].includes('|')) break;
+        if (t === '' || /^```/.test(t) || /^#{1,6}\s/.test(t) || /^[-*+]\s/.test(t) || /^\d+[.)]\s/.test(t) || isTableStart(i)) break;
         para += '\n' + lines[i];
         i++;
       }
@@ -196,5 +203,6 @@
     return html.join('\n');
   }
 
-  window.Markdown = { render: render };
+  if (typeof window !== 'undefined') window.Markdown = { render: render };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { render: render };
 })();

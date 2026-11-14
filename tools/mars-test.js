@@ -11,6 +11,7 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const Mars = require(path.join(ROOT, 'renderer', 'js', 'mars.js'));
+const Markdown = require(path.join(ROOT, 'renderer', 'js', 'markdown.js'));
 
 // ---------- 迷你测试框架 ----------
 let passed = 0;
@@ -311,6 +312,48 @@ test('素材缺失时仍能组装出可用 prompt', () => {
   assertIncludes(p, '人设文件缺失', '应提示人设缺失');
   assertIncludes(p, '## 当前用户配置', '参数快照仍应在');
 });
+
+console.log('\n[9] Markdown 表格渲染');
+const TABLE_SRC = '| 用料 | 份量 |\n|---|---|\n| 小圆面包或白馒头 | 3个 |\n| 鸡蛋 | 2个 |';
+test('标题紧贴表格（无空行）仍渲染为表格', () => {
+  const html = Markdown.render('用料（两三个人的量）\n' + TABLE_SRC);
+  assertIncludes(html, '<p>用料（两三个人的量）</p>', '标题应独立成段');
+  assertIncludes(html, '<table class="md-table">', '应渲染出表格');
+  assertIncludes(html, '<th>用料</th><th>份量</th>', '表头单元格不符');
+  assertIncludes(html, '<td>小圆面包或白馒头</td><td>3个</td>', '数据行不符');
+  assertExcludes(html, '|---|', '分隔行不应以文本出现');
+  assert((html.match(/<tr>/g) || []).length === 3, '应为 1 表头行 + 2 数据行');
+});
+test('表格前有空行时渲染不变', () => {
+  const html = Markdown.render('用料（两三个人的量）\n\n' + TABLE_SRC);
+  assertIncludes(html, '<table class="md-table">', '应渲染出表格');
+  assertIncludes(html, '<td>鸡蛋</td><td>2个</td>', '数据行不符');
+});
+test('表格后紧贴正文：表格与段落各自独立', () => {
+  const html = Markdown.render(TABLE_SRC + '\n做法如下。');
+  assertIncludes(html, '</table>', '应有表格');
+  assertIncludes(html, '<p>做法如下。</p>', '后续正文应独立成段');
+});
+test('对齐分隔行 |:---|---:| 可识别', () => {
+  const html = Markdown.render('说明\n| 料 | 量 |\n|:---|---:|\n| 蛋 | 2个 |');
+  assertIncludes(html, '<table class="md-table">', '对齐分隔行应触发表格');
+});
+test('普通段落含竖线不误判为表格', () => {
+  const html = Markdown.render('用 A | B 两种方案\n下一行普通文本');
+  assertExcludes(html, '<table', '不应出现表格');
+  assertIncludes(html, '<p>', '应为普通段落');
+});
+test('表格单元格内的 HTML 被转义', () => {
+  const html = Markdown.render('| 用料 |\n|---|\n| <script>alert(1)</script> |');
+  assertExcludes(html, '<script>', 'script 标签必须被转义');
+  assertIncludes(html, '&lt;script&gt;', '应以文本形式保留');
+});
+test('流式半截输出（只有表头没有分隔行）不崩溃、不出表格', () => {
+  const html = Markdown.render('用料\n| 用料 | 份量 |');
+  assertExcludes(html, '<table', '分隔行未到时不应出表格');
+  assertIncludes(html, '用料', '文本不应丢失');
+});
+
 // ---------- 汇总 ----------
 console.log('\n──────────────────────────────');
 if (failures.length) {

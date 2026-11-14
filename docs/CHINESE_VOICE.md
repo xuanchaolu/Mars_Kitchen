@@ -89,6 +89,6 @@ npm run package -- linux x64
 - `renderer/js/voice-input.js` 与 `app.js`：连续对话、语音口令、状态显示、聊天发送、朗读衔接与识别引擎切换。
 - `renderer/js/speech.js`：播报与引擎回退控制，保证回退、取消时正确结束播报，配合连续对话的轮流节奏。
 
-自动测试：40 项单元测试（`npm test`）+ 37 项语音测试（`npm run test:voice`）+ 45 项端到端（`npm run test:e2e`），含本机模拟 HTTP 转写的实际 multipart 往返。测试只使用合成音频与测试 Key，不上传真实录音。
+自动测试：47 项单元测试（`npm test`）+ 37 项语音测试（`npm run test:voice`）+ 45 项端到端（`npm run test:e2e`），含本机模拟 HTTP 转写的实际 multipart 往返。测试只使用合成音频与测试 Key，不上传真实录音。
 
 已在 macOS 实机验证：系统识别组件离线转写中文、点击麦克风预授权、Edge 神经语音播报、打包应用双击启动。尚未验证：真实硅基流动账号请求、Windows/Linux 实机。
